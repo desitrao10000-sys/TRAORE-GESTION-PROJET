@@ -59,6 +59,7 @@ export async function POST(request: Request) {
       projectId,
       assigneeId,
       assigneeName,
+      budget,
       objectivesData // Données du questionnaire
     } = body
 
@@ -88,7 +89,8 @@ export async function POST(request: Request) {
         dueDate: dueDate ? new Date(dueDate) : null,
         projectId,
         assigneeId,
-        assigneeName
+        assigneeName,
+        budget: budget ? parseFloat(budget) : 0
       },
       include: {
         project: true,
