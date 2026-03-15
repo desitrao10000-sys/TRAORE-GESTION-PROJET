@@ -21,12 +21,6 @@ export async function GET(request: Request) {
             name: true,
             status: true
           }
-        },
-        task: {
-          select: {
-            id: true,
-            title: true
-          }
         }
       },
       orderBy: { date: 'desc' }
@@ -205,3 +199,4 @@ export async function DELETE(request: Request) {
     return NextResponse.json({ success: false, error: 'Erreur lors de la suppression de la dépense' }, { status: 500 })
   }
 }
+// Force recompile
