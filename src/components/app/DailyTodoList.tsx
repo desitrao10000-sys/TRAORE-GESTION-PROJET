@@ -22,6 +22,7 @@ interface Expense {
   amount: number
   category: string
   date: string
+  taskId?: string | null
 }
 
 interface TodoItem {
@@ -144,8 +145,8 @@ export function DailyTodoList({ tasks, projects, risks, onTaskUpdate }: DailyTod
           riskId: activeRisk?.id,
           riskTitle: activeRisk?.title,
           riskSeverity: activeRisk?.severity,
-          budget: (task as any).budget || 0,
-          budgetSpent: (task as any).budgetSpent || 0
+          budget: task.budget || 0,
+          budgetSpent: task.budgetSpent || 0
         } as TodoItem
       })
   }, [tasks, projects, risks])
@@ -261,7 +262,8 @@ export function DailyTodoList({ tasks, projects, risks, onTaskUpdate }: DailyTod
           description: expenseNote || `Dépense pour: ${expenseModal.taskTitle}`,
           amount: parseFloat(expenseAmount),
           category: expenseCategory,
-          projectId: expenseModal.projectId
+          projectId: expenseModal.projectId,
+          taskId: expenseModal.taskId  // Lier la dépense à la tâche
         })
       })
       const data = await res.json()
@@ -424,10 +426,7 @@ export function DailyTodoList({ tasks, projects, risks, onTaskUpdate }: DailyTod
     })())
     const isExpanded = expandedTodo === todo.id
     const isUpdating = updatingTaskId === todo.taskId
-    const todoExpenses = projectExpenses.filter(e => 
-      e.description?.includes(todo.taskTitle) || 
-      e.description?.toLowerCase().includes(todo.taskTitle.toLowerCase())
-    )
+    const todoExpenses = projectExpenses.filter(e => e.taskId === todo.taskId)
 
     return (
       <div 

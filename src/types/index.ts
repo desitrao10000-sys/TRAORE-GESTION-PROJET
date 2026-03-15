@@ -66,6 +66,8 @@ export interface Task {
   project?: Project
   assigneeId: string | null
   assigneeName: string | null
+  budget: number
+  budgetSpent: number
   createdAt: Date
   updatedAt: Date
 }
@@ -78,7 +80,9 @@ export interface Expense {
   category: string | null
   date: Date
   projectId: string
+  taskId: string | null
   project?: Project
+  task?: Task
   createdAt: Date
   updatedAt: Date
 }

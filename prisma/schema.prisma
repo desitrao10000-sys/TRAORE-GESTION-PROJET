@@ -154,6 +154,7 @@ model Task {
   comments        Comment[]
   history         ActivityHistory[]
   timerSessions   TimerSession[]
+  expenses        Expense[]       // Dépenses liées à cette tâche
   
   createdAt       DateTime        @default(now())
   updatedAt       DateTime        @updatedAt
@@ -206,6 +207,8 @@ model Expense {
   date        DateTime  @default(now())
   projectId   String
   project     Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  taskId      String?   // Lien optionnel vers une tâche spécifique
+  task        Task?     @relation(fields: [taskId], references: [id], onDelete: SetNull)
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 }

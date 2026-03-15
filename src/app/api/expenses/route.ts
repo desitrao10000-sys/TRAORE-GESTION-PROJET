@@ -6,8 +6,11 @@ export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url)
     const projectId = searchParams.get('projectId')
+    const taskId = searchParams.get('taskId')
     
-    const where = projectId ? { projectId } : {}
+    const where: Record<string, unknown> = {}
+    if (projectId) where.projectId = projectId
+    if (taskId) where.taskId = taskId
     
     const expenses = await db.expense.findMany({
       where,
@@ -17,6 +20,12 @@ export async function GET(request: Request) {
             id: true,
             name: true,
             status: true
+          }
+        },
+        task: {
+          select: {
+            id: true,
+            title: true
           }
         }
       },
@@ -34,7 +43,7 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   try {
     const body = await request.json()
-    const { description, amount, category, projectId, date } = body
+    const { description, amount, category, projectId, taskId, date } = body
 
     if (!description || !amount || !projectId) {
       return NextResponse.json({ 
@@ -43,13 +52,16 @@ export async function POST(request: Request) {
       }, { status: 400 })
     }
 
+    const amountFloat = parseFloat(amount)
+
     // Créer la dépense
     const expense = await db.expense.create({
       data: {
         description,
-        amount: parseFloat(amount),
+        amount: amountFloat,
         category: category || 'Autres',
         projectId,
+        taskId: taskId || null,
         date: date ? new Date(date) : new Date()
       }
     })
@@ -59,10 +71,22 @@ export async function POST(request: Request) {
       where: { id: projectId },
       data: {
         budgetSpent: {
-          increment: parseFloat(amount)
+          increment: amountFloat
         }
       }
     })
+
+    // Si une tâche est associée, mettre à jour son budgetSpent
+    if (taskId) {
+      await db.task.update({
+        where: { id: taskId },
+        data: {
+          budgetSpent: {
+            increment: amountFloat
+          }
+        }
+      })
+    }
 
     return NextResponse.json({ success: true, data: expense })
   } catch (error) {
@@ -75,7 +99,7 @@ export async function POST(request: Request) {
 export async function PUT(request: Request) {
   try {
     const body = await request.json()
-    const { id, description, amount, category, date } = body
+    const { id, description, amount, category, date, taskId } = body
 
     if (!id) {
       return NextResponse.json({ success: false, error: 'ID requis' }, { status: 400 })
@@ -88,19 +112,22 @@ export async function PUT(request: Request) {
       return NextResponse.json({ success: false, error: 'Dépense non trouvée' }, { status: 404 })
     }
 
+    const amountFloat = amount !== undefined ? parseFloat(amount) : oldExpense.amount
+
     const expense = await db.expense.update({
       where: { id },
       data: {
         description,
-        amount: amount !== undefined ? parseFloat(amount) : undefined,
+        amount: amountFloat,
         category,
+        taskId: taskId !== undefined ? taskId : oldExpense.taskId,
         date: date ? new Date(date) : undefined
       }
     })
 
     // Ajuster le budget du projet si le montant a changé
-    if (amount !== undefined && amount !== oldExpense.amount) {
-      const difference = parseFloat(amount) - oldExpense.amount
+    if (amount !== undefined && amountFloat !== oldExpense.amount) {
+      const difference = amountFloat - oldExpense.amount
       await db.project.update({
         where: { id: oldExpense.projectId },
         data: {
@@ -109,6 +136,18 @@ export async function PUT(request: Request) {
           }
         }
       })
+
+      // Si la dépense est liée à une tâche, ajuster son budgetSpent
+      if (oldExpense.taskId) {
+        await db.task.update({
+          where: { id: oldExpense.taskId },
+          data: {
+            budgetSpent: {
+              increment: difference
+            }
+          }
+        })
+      }
     }
 
     return NextResponse.json({ success: true, data: expense })
@@ -147,6 +186,18 @@ export async function DELETE(request: Request) {
         }
       }
     })
+
+    // Si la dépense était liée à une tâche, mettre à jour son budgetSpent
+    if (expense.taskId) {
+      await db.task.update({
+        where: { id: expense.taskId },
+        data: {
+          budgetSpent: {
+            decrement: expense.amount
+          }
+        }
+      })
+    }
 
     return NextResponse.json({ success: true })
   } catch (error) {
