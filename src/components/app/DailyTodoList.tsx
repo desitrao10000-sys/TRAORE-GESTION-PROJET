@@ -5,7 +5,7 @@ import { format, isToday, isTomorrow, isPast, addDays } from 'date-fns'
 import { fr } from 'date-fns/locale'
 import { 
   CheckCircle2, Clock, AlertTriangle, Calendar,
-  ChevronDown, Play, ListTodo, Check, X, Loader2, DollarSign, Filter, User
+  ChevronDown, Play, ListTodo, Check, X, Loader2, DollarSign, Filter, User, Wallet
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -31,6 +31,8 @@ interface TodoItem {
   riskId?: string
   riskTitle?: string
   riskSeverity?: string
+  budget: number
+  budgetSpent: number
 }
 
 interface Expense {
@@ -64,6 +66,10 @@ export function DailyTodoList({ tasks, projects, risks, onTaskUpdate }: DailyTod
   const [saving, setSaving] = useState(false)
   const [updatingTaskId, setUpdatingTaskId] = useState<string | null>(null)
   const [projectExpenses, setProjectExpenses] = useState<Expense[]>([])
+  
+  // Budget modal state
+  const [budgetModal, setBudgetModal] = useState<TodoItem | null>(null)
+  const [budgetAmount, setBudgetAmount] = useState('')
   
   // Reprogramming dialog state
   const [reprogramDialog, setReprogramDialog] = useState<{
@@ -136,7 +142,9 @@ export function DailyTodoList({ tasks, projects, risks, onTaskUpdate }: DailyTod
           solution: task.solutionProposed,
           riskId: activeRisk?.id,
           riskTitle: activeRisk?.title,
-          riskSeverity: activeRisk?.severity
+          riskSeverity: activeRisk?.severity,
+          budget: (task as any).budget || 0,
+          budgetSpent: (task as any).budgetSpent || 0
         } as TodoItem
       })
   }, [tasks, projects, risks])
