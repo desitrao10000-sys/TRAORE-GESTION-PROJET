@@ -1047,18 +1047,12 @@ export function DailyTodoList({ tasks, projects, risks, onTaskUpdate }: DailyTod
               
               <div>
                 <label className="text-sm text-gray-400 block mb-1">Catégorie</label>
-                <select
+                <Input
                   value={expenseCategory}
                   onChange={(e) => setExpenseCategory(e.target.value)}
-                  className="w-full bg-[#0f1c2e] border border-blue-400/30 rounded-md px-3 py-2 text-white"
-                >
-                  <option value="Matériaux">Matériaux</option>
-                  <option value="Main d'œuvre">Main d'œuvre</option>
-                  <option value="Équipement">Équipement</option>
-                  <option value="Transport">Transport</option>
-                  <option value="Études">Études</option>
-                  <option value="Autres">Autres</option>
-                </select>
+                  placeholder="Ex: Matériaux, Main d'œuvre, Transport..."
+                  className="bg-[#0f1c2e] border-blue-400/30 text-white"
+                />
               </div>
               
               <div>
