@@ -4,8 +4,8 @@ import { useState, useMemo, useEffect } from 'react'
 import { format, isToday, isTomorrow, isPast, addDays } from 'date-fns'
 import { fr } from 'date-fns/locale'
 import { 
-  CheckCircle2, Circle, Clock, AlertTriangle, Calendar,
-  ChevronDown, Play, ListTodo, Check, X, Loader2, DollarSign, Filter, User, ArrowRight
+  CheckCircle2, Clock, AlertTriangle, Calendar,
+  ChevronDown, Play, ListTodo, Check, X, Loader2, DollarSign, Filter, User
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
