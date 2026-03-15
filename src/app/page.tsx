@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { useAppStore } from '@/store/appStore'
+import { useAppStore, useHydration } from '@/store/appStore'
 import { Header } from '@/components/app/Header'
 import { Sidebar } from '@/components/app/Sidebar'
 import { DashboardOverview } from '@/components/app/DashboardOverview'
@@ -17,6 +17,7 @@ import { ImportPDF } from '@/components/app/ImportPDF'
 import { Folder, Project, Task, Risk } from '@/types'
 
 export default function Home() {
+  const hydrated = useHydration()
   const {
     currentPage,
     setCurrentPage,
@@ -116,6 +117,45 @@ export default function Home() {
     }
   }, [fetchData])
 
+  // Auto-save to GitHub periodically (every 5 minutes) and before page unload
+  useEffect(() => {
+    // Auto-save interval (5 minutes)
+    const autoSaveInterval = setInterval(async () => {
+      try {
+        await fetch('/api/backup', { method: 'POST' })
+        console.log('Auto-save completed')
+      } catch (error) {
+        console.error('Auto-save failed:', error)
+      }
+    }, 5 * 60 * 1000) // 5 minutes
+
+    // Save before page unload (warning: may not complete)
+    const handleBeforeUnload = async (e: BeforeUnloadEvent) => {
+      // Check if there are unsaved changes
+      try {
+        const res = await fetch('/api/backup')
+        const data = await res.json()
+        if (data.success && data.hasChanges) {
+          // Trigger save (may not complete in time)
+          fetch('/api/backup', { method: 'POST' })
+          // Show warning to user
+          e.preventDefault()
+          e.returnValue = 'Vous avez des modifications non sauvegardées. Voulez-vous vraiment quitter ?'
+          return e.returnValue
+        }
+      } catch (error) {
+        console.error('Error checking backup status:', error)
+      }
+    }
+
+    window.addEventListener('beforeunload', handleBeforeUnload)
+
+    return () => {
+      clearInterval(autoSaveInterval)
+      window.removeEventListener('beforeunload', handleBeforeUnload)
+    }
+  }, [])
+
   // Fetch selected project details
   useEffect(() => {
     const fetchProject = async () => {
@@ -178,7 +218,7 @@ export default function Home() {
     await fetchData(false)
   }, [fetchData])
 
-  if (loading) {
+  if (!hydrated || loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-[#1a2744] via-[#1e3a5f] to-[#0f1225] flex items-center justify-center">
         <div className="text-center">

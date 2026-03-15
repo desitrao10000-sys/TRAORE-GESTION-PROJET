@@ -1,6 +1,7 @@
 'use client'
 
 import { create } from 'zustand'
+import { persist } from 'zustand/middleware'
 import { PageType, DashboardTab } from '@/types'
 
 interface AppState {
@@ -22,25 +23,89 @@ interface AppState {
   // UI State
   sidebarOpen: boolean
   setSidebarOpen: (open: boolean) => void
+  
+  // User preferences
+  theme: 'light' | 'dark'
+  setTheme: (theme: 'light' | 'dark') => void
+  
+  // Last activity timestamp
+  lastActivity: number
+  updateLastActivity: () => void
 }
 
-export const useAppStore = create<AppState>((set) => ({
-  // Navigation
-  currentPage: 'dashboard',
-  setCurrentPage: (page) => set({ currentPage: page, selectedProjectId: null }),
+export const useAppStore = create<AppState>()(
+  persist(
+    (set) => ({
+      // Navigation
+      currentPage: 'dashboard',
+      setCurrentPage: (page) => set({ currentPage: page, selectedProjectId: null, lastActivity: Date.now() }),
+      
+      // Dashboard tabs
+      dashboardTab: 'overview',
+      setDashboardTab: (tab) => set({ dashboardTab: tab, lastActivity: Date.now() }),
+      
+      // Projects
+      selectedFolderId: null,
+      setSelectedFolderId: (folderId) => set({ selectedFolderId: folderId, selectedProjectId: null, lastActivity: Date.now() }),
+      
+      selectedProjectId: null,
+      setSelectedProjectId: (projectId) => set({ selectedProjectId: projectId, lastActivity: Date.now() }),
+      
+      // UI State
+      sidebarOpen: true,
+      setSidebarOpen: (open) => set({ sidebarOpen: open, lastActivity: Date.now() }),
+      
+      // User preferences
+      theme: 'dark',
+      setTheme: (theme) => set({ theme, lastActivity: Date.now() }),
+      
+      // Last activity
+      lastActivity: Date.now(),
+      updateLastActivity: () => set({ lastActivity: Date.now() }),
+    }),
+    {
+      name: 'traore-gestion-projet-storage', // Nom unique pour localStorage
+      partialize: (state) => ({
+        // Seulement les données qu'on veut persister
+        currentPage: state.currentPage,
+        dashboardTab: state.dashboardTab,
+        selectedFolderId: state.selectedFolderId,
+        selectedProjectId: state.selectedProjectId,
+        sidebarOpen: state.sidebarOpen,
+        theme: state.theme,
+        lastActivity: state.lastActivity,
+      }),
+    }
+  )
+)
+
+// Hook pour vérifier si les données sont restaurées
+export const useHydration = () => {
+  const [hydrated, setHydrated] = useState(false)
   
-  // Dashboard tabs
-  dashboardTab: 'overview',
-  setDashboardTab: (tab) => set({ dashboardTab: tab }),
+  useEffect(() => {
+    // Fonction pour vérifier l'hydratation
+    const checkHydration = () => {
+      if (useAppStore.persist.hasHydrated()) {
+        setHydrated(true)
+        return true
+      }
+      return false
+    }
+    
+    // Vérifier immédiatement
+    if (checkHydration()) return
+    
+    // Sinon attendre l'événement d'hydratation
+    const unsub = useAppStore.persist.onFinishHydration(() => {
+      setHydrated(true)
+    })
+    
+    return unsub
+  }, [])
   
-  // Projects
-  selectedFolderId: null,
-  setSelectedFolderId: (folderId) => set({ selectedFolderId: folderId, selectedProjectId: null }),
-  
-  selectedProjectId: null,
-  setSelectedProjectId: (projectId) => set({ selectedProjectId: projectId }),
-  
-  // UI State
-  sidebarOpen: true,
-  setSidebarOpen: (open) => set({ sidebarOpen: open }),
-}))
+  return hydrated
+}
+
+// Import nécessaire pour le hook
+import { useState, useEffect } from 'react'
