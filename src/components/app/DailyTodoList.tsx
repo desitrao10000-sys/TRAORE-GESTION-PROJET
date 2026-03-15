@@ -281,6 +281,40 @@ export function DailyTodoList({ tasks, projects, risks, onTaskUpdate }: DailyTod
     }
   }
 
+  // Add budget to task
+  const handleAddBudget = async () => {
+    if (!budgetModal || !budgetAmount) {
+      toast({ title: 'Veuillez entrer un montant', variant: 'destructive' })
+      return
+    }
+    
+    setSaving(true)
+    try {
+      const res = await fetch('/api/tasks', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: budgetModal.taskId,
+          budget: parseFloat(budgetAmount)
+        })
+      })
+      const data = await res.json()
+      if (data.success) {
+        toast({ title: '💰 Budget enregistré', description: `${parseFloat(budgetAmount).toLocaleString()} FCFA` })
+        setBudgetModal(null)
+        setBudgetAmount('')
+        if (onTaskUpdate) onTaskUpdate()
+      } else {
+        throw new Error(data.error)
+      }
+    } catch (error) {
+      console.error('Error adding budget:', error)
+      toast({ title: 'Erreur lors de l\'enregistrement du budget', variant: 'destructive' })
+    } finally {
+      setSaving(false)
+    }
+  }
+
   // Fetch project expenses when a todo is expanded
   useEffect(() => {
     if (expandedTodo) {
