@@ -41,17 +41,7 @@ interface DailyTodoListProps {
 }
 
 type StatusFilter = 'Non démarré' | 'En cours' | 'Terminé'
-type DateFilter = 'en-retard' | 'a-venir' | 'termine'
-
-// Function to check if a task is late (only for tasks that haven't started)
-const isTaskLate = (task: Task): boolean => {
-  if (!task.dueDate) return false
-  const dueDate = new Date(task.dueDate)
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
-  dueDate.setHours(0, 0, 0, 0)
-  return dueDate < today && task.status === 'À faire'
-}
+type DateFilter = 'en-retard' | 'a-venir' | 'termine' | 'en-cours'
 
 export function DailyTodoList({ tasks, projects, risks, onTaskUpdate }: DailyTodoListProps) {
   const { toast } = useToast()
@@ -131,7 +121,7 @@ export function DailyTodoList({ tasks, projects, risks, onTaskUpdate }: DailyTod
   }, [tasks, projects, risks])
 
   // Update task status
-  const updateStatus = async (todo: TodoItem, newStatus: 'Non démarré' | 'En cours' | 'Terminé') => {
+  const handleUpdateStatus = async (todo: TodoItem, newStatus: 'Non démarré' | 'En cours' | 'Terminé') => {
     setUpdatingTaskId(todo.taskId)
     try {
       // Map todo status back to task status
@@ -184,8 +174,7 @@ export function DailyTodoList({ tasks, projects, risks, onTaskUpdate }: DailyTod
           id: reprogramDialog.todo.taskId,
           dueDate: reprogramDialog.newDate,
           status: reprogramDialog.newStatus === 'Non démarré' ? 'À faire' : 
-                  reprogramDialog.newStatus === 'En cours' ? 'En cours' : 'À faire',
-          notes: reprogramDialog.reason ? `Reprogrammation: ${reprogramDialog.reason}` : undefined
+                  reprogramDialog.newStatus === 'En cours' ? 'En cours' : 'À faire'
         })
       })
       const data = await res.json()
@@ -204,7 +193,7 @@ export function DailyTodoList({ tasks, projects, risks, onTaskUpdate }: DailyTod
   }
 
   // Add expense
-  const addExpense = async () => {
+  const handleAddExpense = async () => {
     if (!expenseModal || !expenseAmount) return
     
     setSaving(true)
@@ -256,27 +245,30 @@ export function DailyTodoList({ tasks, projects, risks, onTaskUpdate }: DailyTod
     })
   }
 
-  // Organize todos by date
+  // Organize todos by date and status
   const organizedTodos = useMemo(() => {
     const todayList: TodoItem[] = []
     const tomorrowList: TodoItem[] = []
     const upcomingList: TodoItem[] = []
     const overdueList: TodoItem[] = []
     const noDateList: TodoItem[] = []
+    const inProgressList: TodoItem[] = []
     const completedList: TodoItem[] = []
-
-    // Get completed task IDs
-    const completedTaskIds = new Set(
-      tasks.filter(t => t.status === 'Validé').map(t => t.id)
-    )
 
     todos.forEach(todo => {
       // Check if task is completed
-      if (completedTaskIds.has(todo.taskId)) {
+      if (todo.status === 'Terminé') {
         completedList.push(todo)
         return
       }
       
+      // Check if task is in progress - separate section
+      if (todo.status === 'En cours') {
+        inProgressList.push(todo)
+        return
+      }
+      
+      // Non démarré tasks - organize by date
       if (!todo.deadline) {
         noDateList.push(todo)
         return
@@ -311,9 +303,10 @@ export function DailyTodoList({ tasks, projects, risks, onTaskUpdate }: DailyTod
       upcoming: upcomingList.sort(sortByDeadline), 
       overdue: overdueList.sort(sortByDeadline), 
       noDate: noDateList,
+      inProgress: inProgressList,
       completed: completedList
     }
-  }, [todos, tasks])
+  }, [todos])
 
   // Apply filters
   const applyFilters = (todoList: TodoItem[], sectionType?: string) => {
@@ -329,7 +322,8 @@ export function DailyTodoList({ tasks, projects, risks, onTaskUpdate }: DailyTod
       const sectionMatch: Record<string, DateFilter> = {
         'overdue': 'en-retard',
         'upcoming': 'a-venir',
-        'completed': 'termine'
+        'completed': 'termine',
+        'inProgress': 'en-cours'
       }
       const filterKey = sectionMatch[sectionType]
       if (filterKey && !filterDates.includes(filterKey)) {
@@ -344,40 +338,13 @@ export function DailyTodoList({ tasks, projects, risks, onTaskUpdate }: DailyTod
     total: todos.length,
     notStarted: todos.filter(t => t.status === 'Non démarré').length,
     inProgress: todos.filter(t => t.status === 'En cours').length,
-    completed: tasks.filter(t => t.status === 'Validé').length,
+    completed: todos.filter(t => t.status === 'Terminé').length,
     overdue: organizedTodos.overdue.length,
-    upcoming: organizedTodos.upcoming.length,
-    completedList: organizedTodos.completed.length
-  }), [todos, tasks, organizedTodos])
-
-  // Status config with 3 states
-  const statusConfig: Record<string, { icon: React.ElementType; color: string; bg: string; border: string; label: string }> = {
-    'Non démarré': { 
-      icon: Circle, 
-      color: 'text-gray-300', 
-      bg: 'bg-gray-500/20', 
-      border: 'border-gray-400',
-      label: 'Non démarré' 
-    },
-    'En cours': { 
-      icon: Play, 
-      color: 'text-blue-300', 
-      bg: 'bg-blue-500/20', 
-      border: 'border-blue-400',
-      label: 'En cours' 
-    },
-    'Terminé': { 
-      icon: CheckCircle2, 
-      color: 'text-green-300', 
-      bg: 'bg-green-500/20', 
-      border: 'border-green-400',
-      label: 'Terminé' 
-    }
-  }
+    upcoming: organizedTodos.upcoming.length
+  }), [todos, organizedTodos])
 
   // Render todo item
-  const renderTodoItem = (todo: TodoItem, sectionType: string) => {
-    const config = statusConfig[todo.status] || statusConfig['Non démarré']
+  const renderTodoItem = (todo: TodoItem, sectionType: string, isCompleted: boolean = false) => {
     const isOverdue = sectionType === 'overdue' || (todo.deadline && (() => {
       try {
         return isPast(new Date(todo.deadline))
@@ -392,74 +359,79 @@ export function DailyTodoList({ tasks, projects, risks, onTaskUpdate }: DailyTod
         className={`rounded-xl border transition-all ${
           isOverdue 
             ? 'bg-red-500/10 border-red-400/30' 
+            : isCompleted 
+            ? 'bg-green-500/10 border-green-400/30'
             : 'bg-[#1e3a5f]/50 border-blue-400/20'
         }`}
       >
         <div className="p-4">
-          {/* Status selector - 3 buttons horizontal */}
-          <div className="flex items-center gap-1 mb-3 p-1 bg-[#0f1c2e]/50 rounded-lg">
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation()
-                updateStatus(todo, 'Non démarré')
-              }}
-              disabled={isUpdating}
-              className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-md text-xs font-medium transition-all ${
-                todo.status === 'Non démarré' 
-                  ? 'bg-gray-500/30 text-white border border-gray-400/50' 
-                  : 'text-gray-400 hover:text-gray-300 hover:bg-gray-500/10'
-              }`}
-              title="Tâche non démarrée"
-            >
-              <Circle className="w-4 h-4" />
-              Non démarré
-            </button>
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation()
-                updateStatus(todo, 'En cours')
-              }}
-              disabled={isUpdating}
-              className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-md text-xs font-medium transition-all ${
-                todo.status === 'En cours' 
-                  ? 'bg-blue-500/30 text-white border border-blue-400/50' 
-                  : 'text-gray-400 hover:text-blue-300 hover:bg-blue-500/10'
-              }`}
-              title="Tâche en cours (a démarré, pas finie)"
-            >
-              {isUpdating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4" />}
-              En cours
-            </button>
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation()
-                updateStatus(todo, 'Terminé')
-              }}
-              disabled={isUpdating}
-              className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-md text-xs font-medium transition-all ${
-                todo.status === 'Terminé' 
-                  ? 'bg-green-500/30 text-white border border-green-400/50' 
-                  : 'text-gray-400 hover:text-green-300 hover:bg-green-500/10'
-              }`}
-              title="Tâche terminée"
-            >
-              <CheckCircle2 className="w-4 h-4" />
-              Terminé
-            </button>
-          </div>
+          {/* Status selector - Only show if NOT completed */}
+          {!isCompleted && (
+            <div className="flex items-center gap-1 mb-3 p-1 bg-[#0f1c2e]/50 rounded-lg">
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  handleUpdateStatus(todo, 'Non démarré')
+                }}
+                disabled={isUpdating}
+                className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-md text-xs font-medium transition-all ${
+                  todo.status === 'Non démarré' 
+                    ? 'bg-gray-500/30 text-white border border-gray-400/50' 
+                    : 'text-gray-400 hover:text-gray-300 hover:bg-gray-500/10'
+                }`}
+                title="Tâche non démarrée"
+              >
+                <Circle className="w-4 h-4" />
+                Non démarré
+              </button>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  handleUpdateStatus(todo, 'En cours')
+                }}
+                disabled={isUpdating}
+                className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-md text-xs font-medium transition-all ${
+                  todo.status === 'En cours' 
+                    ? 'bg-blue-500/30 text-white border border-blue-400/50' 
+                    : 'text-gray-400 hover:text-blue-300 hover:bg-blue-500/10'
+                }`}
+                title="Tâche en cours"
+              >
+                {isUpdating && todo.status === 'En cours' ? <Loader2 className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4" />}
+                En cours
+              </button>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  handleUpdateStatus(todo, 'Terminé')
+                }}
+                disabled={isUpdating}
+                className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-md text-xs font-medium transition-all ${
+                  todo.status === 'Terminé' 
+                    ? 'bg-green-500/30 text-white border border-green-400/50' 
+                    : 'text-gray-400 hover:text-green-300 hover:bg-green-500/10'
+                }`}
+                title="Tâche terminée"
+              >
+                <CheckCircle2 className="w-4 h-4" />
+                Terminé
+              </button>
+            </div>
+          )}
 
           {/* Task content */}
           <div className="flex items-start gap-3">
             {/* Task info */}
             <div className="flex-1">
               <div className="flex items-start justify-between gap-2">
-                <h3 className={`font-medium ${todo.status === 'Terminé' ? 'line-through text-gray-400' : 'text-white'}`}>
+                <h3 className={`font-medium ${isCompleted ? 'line-through text-gray-400' : 'text-white'}`}>
                   {todo.taskTitle}
                 </h3>
                 <button
+                  type="button"
                   onClick={() => setExpandedTodo(isExpanded ? null : todo.id)}
                   className="text-gray-400 hover:text-white transition-colors p-1"
                 >
@@ -524,37 +496,42 @@ export function DailyTodoList({ tasks, projects, risks, onTaskUpdate }: DailyTod
                     </div>
                   )}
                   
-                  {/* Action buttons for overdue tasks */}
-                  {isOverdue && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        setReprogramDialog({
-                          open: true,
-                          todo,
-                          newDate: todo.deadline ? format(new Date(todo.deadline), 'yyyy-MM-dd') : '',
-                          newStatus: 'Non démarré',
-                          reason: ''
-                        })
-                      }}
-                      className="border-amber-400/30 text-amber-300 hover:bg-amber-500/20"
-                    >
-                      <Calendar className="w-3 h-3 mr-1" />
-                      Reprogrammer
-                    </Button>
-                  )}
-                  
-                  {todo.status !== 'Terminé' && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setExpenseModal(todo)}
-                      className="border-amber-400/30 text-amber-300 hover:bg-amber-500/20"
-                    >
-                      <DollarSign className="w-3 h-3 mr-1" />
-                      Ajouter une dépense
-                    </Button>
+                  {/* Action buttons - Only show if NOT completed */}
+                  {!isCompleted && (
+                    <>
+                      {/* Reprogrammer button - for overdue tasks or tasks with deadline */}
+                      {(isOverdue || todo.deadline) && (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            setReprogramDialog({
+                              open: true,
+                              todo,
+                              newDate: todo.deadline ? format(new Date(todo.deadline), 'yyyy-MM-dd') : '',
+                              newStatus: todo.status === 'En cours' ? 'En cours' : 'Non démarré',
+                              reason: ''
+                            })
+                          }}
+                          className="border-amber-400/30 text-amber-300 hover:bg-amber-500/20"
+                        >
+                          <Calendar className="w-3 h-3 mr-1" />
+                          Reprogrammer
+                        </Button>
+                      )}
+                      
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setExpenseModal(todo)}
+                        className="border-amber-400/30 text-amber-300 hover:bg-amber-500/20"
+                      >
+                        <DollarSign className="w-3 h-3 mr-1" />
+                        Ajouter une dépense
+                      </Button>
+                    </>
                   )}
                   
                   {/* Comment section */}
@@ -569,7 +546,7 @@ export function DailyTodoList({ tasks, projects, risks, onTaskUpdate }: DailyTod
   }
 
   // Render section
-  const renderSection = (title: string, icon: React.ReactNode, items: TodoItem[], titleColor: string, sectionType?: string) => {
+  const renderSection = (title: string, icon: React.ReactNode, items: TodoItem[], titleColor: string, sectionType?: string, isCompleted: boolean = false) => {
     const filtered = applyFilters(items, sectionType)
     if (filtered.length === 0) return null
 
@@ -581,7 +558,7 @@ export function DailyTodoList({ tasks, projects, risks, onTaskUpdate }: DailyTod
           <Badge variant="outline" className="ml-2 bg-transparent">{filtered.length}</Badge>
         </h2>
         <div className="space-y-2">
-          {filtered.map(todo => renderTodoItem(todo, sectionType || title.toLowerCase().split(' ')[0]))}
+          {filtered.map(todo => renderTodoItem(todo, sectionType || '', isCompleted))}
         </div>
       </div>
     )
@@ -593,7 +570,7 @@ export function DailyTodoList({ tasks, projects, risks, onTaskUpdate }: DailyTod
       <div>
         <h1 className="text-2xl font-bold text-white flex items-center gap-2">
           <ListTodo className="w-6 h-6 text-amber-400" />
-          TODO List
+          TODO List Projet
         </h1>
         <p className="text-gray-400 text-sm mt-1">
           {format(new Date(), "'Le' d MMMM yyyy", { locale: fr })}
@@ -608,7 +585,7 @@ export function DailyTodoList({ tasks, projects, risks, onTaskUpdate }: DailyTod
             <Circle className="w-5 h-5 text-gray-400 mt-0.5 flex-shrink-0" />
             <div>
               <p className="text-white font-medium">Non démarré</p>
-              <p className="text-gray-400 text-xs">La tâche n'a pas encore commencé (par défaut)</p>
+              <p className="text-gray-400 text-xs">La tâche n'a pas encore commencé</p>
             </div>
           </div>
           <div className="flex items-start gap-2 p-2 bg-blue-500/10 rounded-lg border border-blue-400/20">
@@ -693,7 +670,7 @@ export function DailyTodoList({ tasks, projects, risks, onTaskUpdate }: DailyTod
                 <ListTodo className="w-4 h-4 text-amber-400" />
               </div>
               <div>
-                <p className="text-gray-400 text-xs">Total à faire</p>
+                <p className="text-gray-400 text-xs">Total</p>
                 <p className="text-xl font-bold text-white">{stats.total}</p>
               </div>
             </div>
@@ -726,8 +703,8 @@ export function DailyTodoList({ tasks, projects, risks, onTaskUpdate }: DailyTod
         <div className="flex flex-col gap-2">
           <label className="text-xs text-gray-400">Statut (multi-sélection)</label>
           <div className="flex flex-wrap gap-2">
-            {/* Non démarré */}
             <button
+              type="button"
               onClick={() => toggleStatusFilter('Non démarré')}
               className={`flex items-center gap-2 px-3 py-1.5 rounded-md border text-sm transition-all ${
                 filterStatuses.includes('Non démarré') 
@@ -740,8 +717,8 @@ export function DailyTodoList({ tasks, projects, risks, onTaskUpdate }: DailyTod
               {filterStatuses.includes('Non démarré') && <Check className="w-3 h-3 text-green-400" />}
             </button>
             
-            {/* En cours */}
             <button
+              type="button"
               onClick={() => toggleStatusFilter('En cours')}
               className={`flex items-center gap-2 px-3 py-1.5 rounded-md border text-sm transition-all ${
                 filterStatuses.includes('En cours') 
@@ -754,8 +731,8 @@ export function DailyTodoList({ tasks, projects, risks, onTaskUpdate }: DailyTod
               {filterStatuses.includes('En cours') && <Check className="w-3 h-3 text-green-400" />}
             </button>
             
-            {/* Terminé */}
             <button
+              type="button"
               onClick={() => toggleStatusFilter('Terminé')}
               className={`flex items-center gap-2 px-3 py-1.5 rounded-md border text-sm transition-all ${
                 filterStatuses.includes('Terminé') 
@@ -768,9 +745,9 @@ export function DailyTodoList({ tasks, projects, risks, onTaskUpdate }: DailyTod
               {filterStatuses.includes('Terminé') && <Check className="w-3 h-3 text-green-400" />}
             </button>
             
-            {/* Clear status filters button */}
             {filterStatuses.length > 0 && (
               <button
+                type="button"
                 onClick={() => setFilterStatuses([])}
                 className="flex items-center gap-1 px-3 py-1.5 rounded-md border border-red-400/30 text-red-400 text-sm hover:bg-red-500/20 transition-all"
               >
@@ -787,8 +764,8 @@ export function DailyTodoList({ tasks, projects, risks, onTaskUpdate }: DailyTod
         <div className="flex flex-col gap-2">
           <label className="text-xs text-gray-400">Par date (multi-sélection)</label>
           <div className="flex flex-wrap gap-2">
-            {/* En retard */}
             <button
+              type="button"
               onClick={() => toggleDateFilter('en-retard')}
               className={`flex items-center gap-2 px-3 py-1.5 rounded-md border text-sm transition-all ${
                 filterDates.includes('en-retard') 
@@ -801,8 +778,8 @@ export function DailyTodoList({ tasks, projects, risks, onTaskUpdate }: DailyTod
               {filterDates.includes('en-retard') && <Check className="w-3 h-3 text-green-400" />}
             </button>
             
-            {/* À venir */}
             <button
+              type="button"
               onClick={() => toggleDateFilter('a-venir')}
               className={`flex items-center gap-2 px-3 py-1.5 rounded-md border text-sm transition-all ${
                 filterDates.includes('a-venir') 
@@ -815,8 +792,22 @@ export function DailyTodoList({ tasks, projects, risks, onTaskUpdate }: DailyTod
               {filterDates.includes('a-venir') && <Check className="w-3 h-3 text-green-400" />}
             </button>
             
-            {/* Terminé */}
             <button
+              type="button"
+              onClick={() => toggleDateFilter('en-cours')}
+              className={`flex items-center gap-2 px-3 py-1.5 rounded-md border text-sm transition-all ${
+                filterDates.includes('en-cours') 
+                  ? 'bg-amber-500/30 border-amber-400 text-white' 
+                  : 'bg-[#0f1c2e] border-blue-400/30 text-gray-400 hover:border-amber-400/50'
+              }`}
+            >
+              <Play className="w-4 h-4" />
+              En cours
+              {filterDates.includes('en-cours') && <Check className="w-3 h-3 text-green-400" />}
+            </button>
+            
+            <button
+              type="button"
               onClick={() => toggleDateFilter('termine')}
               className={`flex items-center gap-2 px-3 py-1.5 rounded-md border text-sm transition-all ${
                 filterDates.includes('termine') 
@@ -829,9 +820,9 @@ export function DailyTodoList({ tasks, projects, risks, onTaskUpdate }: DailyTod
               {filterDates.includes('termine') && <Check className="w-3 h-3 text-green-400" />}
             </button>
             
-            {/* Clear date filters button */}
             {filterDates.length > 0 && (
               <button
+                type="button"
                 onClick={() => setFilterDates([])}
                 className="flex items-center gap-1 px-3 py-1.5 rounded-md border border-red-400/30 text-red-400 text-sm hover:bg-red-500/20 transition-all"
               >
@@ -852,6 +843,15 @@ export function DailyTodoList({ tasks, projects, risks, onTaskUpdate }: DailyTod
         </div>
       ) : (
         <div className="space-y-8">
+          {/* In Progress - NEW SECTION */}
+          {renderSection(
+            "▶️ En cours",
+            <Play className="w-5 h-5 text-blue-400" />,
+            organizedTodos.inProgress,
+            "text-blue-400",
+            "inProgress"
+          )}
+
           {/* Overdue */}
           {renderSection(
             "⚠️ En retard",
@@ -894,13 +894,14 @@ export function DailyTodoList({ tasks, projects, risks, onTaskUpdate }: DailyTod
             "text-gray-400"
           )}
 
-          {/* Completed */}
+          {/* Completed - WITHOUT status buttons */}
           {renderSection(
             "✅ Terminé",
             <CheckCircle2 className="w-5 h-5 text-green-400" />,
             organizedTodos.completed,
             "text-green-400",
-            "completed"
+            "completed",
+            true // isCompleted = true, no status buttons
           )}
         </div>
       )}
@@ -959,6 +960,7 @@ export function DailyTodoList({ tasks, projects, risks, onTaskUpdate }: DailyTod
           
           <DialogFooter>
             <Button
+              type="button"
               variant="outline"
               onClick={() => setReprogramDialog({ open: false, todo: null, newDate: '', newStatus: '', reason: '' })}
               className="border-blue-400/30 text-blue-200 hover:bg-blue-500/20"
@@ -966,6 +968,7 @@ export function DailyTodoList({ tasks, projects, risks, onTaskUpdate }: DailyTod
               Annuler
             </Button>
             <Button
+              type="button"
               onClick={handleReprogram}
               disabled={saving || !reprogramDialog.newDate}
               className="bg-amber-500 hover:bg-amber-600 text-black font-semibold"
@@ -1030,13 +1033,15 @@ export function DailyTodoList({ tasks, projects, risks, onTaskUpdate }: DailyTod
             
             <div className="flex gap-3 mt-6">
               <Button
-                onClick={addExpense}
+                type="button"
+                onClick={handleAddExpense}
                 disabled={saving || !expenseAmount}
                 className="flex-1 bg-amber-500 hover:bg-amber-600 text-black font-semibold"
               >
                 {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Enregistrer la dépense'}
               </Button>
               <Button
+                type="button"
                 variant="outline"
                 onClick={() => {
                   setExpenseModal(null)
