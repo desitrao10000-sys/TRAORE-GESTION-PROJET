@@ -17,7 +17,17 @@ export async function GET(request: Request) {
       orderBy: { createdAt: 'desc' }
     })
     
-    return NextResponse.json({ success: true, data: comments })
+    // Transform to match frontend interface
+    const transformedComments = comments.map(c => ({
+      id: c.id,
+      content: c.content,
+      author: c.authorName,
+      createdAt: c.createdAt,
+      projectId: c.projectId,
+      taskId: c.taskId
+    }))
+    
+    return NextResponse.json({ success: true, data: transformedComments })
   } catch (error) {
     console.error('Error fetching comments:', error)
     return NextResponse.json({ success: false, error: 'Erreur lors de la récupération des commentaires' }, { status: 500 })
@@ -47,7 +57,17 @@ export async function POST(request: Request) {
       }
     })
 
-    return NextResponse.json({ success: true, data: comment })
+    // Transform to match frontend interface
+    const transformedComment = {
+      id: comment.id,
+      content: comment.content,
+      author: comment.authorName,
+      createdAt: comment.createdAt,
+      projectId: comment.projectId,
+      taskId: comment.taskId
+    }
+
+    return NextResponse.json({ success: true, data: transformedComment })
   } catch (error) {
     console.error('Error creating comment:', error)
     return NextResponse.json({ success: false, error: 'Erreur lors de la création du commentaire' }, { status: 500 })
