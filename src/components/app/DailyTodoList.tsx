@@ -509,31 +509,71 @@ export function DailyTodoList({ tasks, projects, risks, onTaskUpdate }: DailyTod
                     </Button>
                   </div>
                   
-                  {/* Expenses list for this task */}
-                  {todoExpenses.length > 0 && (
-                    <div className="mt-3 p-3 bg-[#0f1c2e]/50 rounded-lg border border-amber-400/20">
-                      <h4 className="text-sm font-medium text-amber-300 mb-2 flex items-center gap-1">
-                        <DollarSign className="w-4 h-4" />
-                        Dépenses associées ({todoExpenses.length})
-                      </h4>
-                      <div className="space-y-1 max-h-32 overflow-y-auto">
-                        {todoExpenses.map(expense => (
-                          <div key={expense.id} className="flex justify-between items-center text-xs py-1 border-b border-gray-700/50">
-                            <span className="text-gray-300 truncate flex-1">{expense.description}</span>
-                            <span className="text-amber-300 font-medium ml-2">
-                              {expense.amount.toLocaleString()} FCFA
+                  {/* Expenses section */}
+                  <div className="mt-3 space-y-3">
+                    {/* Task expenses */}
+                    {todoExpenses.length > 0 && (
+                      <div className="p-3 bg-[#0f1c2e]/50 rounded-lg border border-amber-400/20">
+                        <h4 className="text-sm font-medium text-amber-300 mb-2 flex items-center gap-1">
+                          <DollarSign className="w-4 h-4" />
+                          Dépenses de cette tâche ({todoExpenses.length})
+                        </h4>
+                        <div className="space-y-1 max-h-32 overflow-y-auto">
+                          {todoExpenses.map(expense => (
+                            <div key={expense.id} className="flex justify-between items-center text-xs py-1 border-b border-gray-700/50">
+                              <span className="text-gray-300 truncate flex-1">{expense.description}</span>
+                              <span className="text-amber-300 font-medium ml-2">
+                                {expense.amount.toLocaleString()} FCFA
+                              </span>
+                            </div>
+                          ))}
+                          <div className="flex justify-between items-center text-xs pt-2 font-medium border-t border-gray-600/50">
+                            <span className="text-gray-200">Sous-total tâche</span>
+                            <span className="text-amber-400">
+                              {todoExpenses.reduce((sum, e) => sum + e.amount, 0).toLocaleString()} FCFA
                             </span>
                           </div>
-                        ))}
-                        <div className="flex justify-between items-center text-xs pt-2 font-medium border-t border-gray-600/50">
-                          <span className="text-gray-200">Total</span>
-                          <span className="text-amber-400">
-                            {todoExpenses.reduce((sum, e) => sum + e.amount, 0).toLocaleString()} FCFA
-                          </span>
                         </div>
                       </div>
-                    </div>
-                  )}
+                    )}
+                    
+                    {/* Project total expenses */}
+                    {projectExpenses.length > 0 && (
+                      <div className="p-3 bg-gradient-to-br from-blue-500/10 to-blue-600/5 rounded-lg border border-blue-400/30">
+                        <h4 className="text-sm font-medium text-blue-300 mb-2 flex items-center gap-1">
+                          <DollarSign className="w-4 h-4" />
+                          Situation financière du projet : {todo.projectName}
+                        </h4>
+                        <div className="space-y-2">
+                          <div className="flex justify-between items-center text-xs">
+                            <span className="text-gray-400">Total dépenses projet ({projectExpenses.length} dépenses)</span>
+                            <span className="text-blue-300 font-bold text-sm">
+                              {projectExpenses.reduce((sum, e) => sum + e.amount, 0).toLocaleString()} FCFA
+                            </span>
+                          </div>
+                          {/* Budget info if available */}
+                          {projects.find(p => p.id === todo.projectId) && (
+                            <>
+                              <div className="h-2 bg-blue-900/50 rounded-full overflow-hidden">
+                                <div 
+                                  className="h-full bg-gradient-to-r from-amber-400 to-amber-500 rounded-full transition-all"
+                                  style={{ 
+                                    width: `${Math.min((projectExpenses.reduce((sum, e) => sum + e.amount, 0) / 
+                                      (projects.find(p => p.id === todo.projectId)?.budgetPlanned || 1)) * 100, 100)}%` 
+                                  }}
+                                />
+                              </div>
+                              <div className="flex justify-between items-center text-xs text-gray-400">
+                                <span>Budget prévu: {(projects.find(p => p.id === todo.projectId)?.budgetPlanned || 0).toLocaleString()} FCFA</span>
+                                <span>Reste: {((projects.find(p => p.id === todo.projectId)?.budgetPlanned || 0) - 
+                                  projectExpenses.reduce((sum, e) => sum + e.amount, 0)).toLocaleString()} FCFA</span>
+                              </div>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
                   
                   {/* Comment section */}
                   <CommentSection taskId={todo.taskId} />
