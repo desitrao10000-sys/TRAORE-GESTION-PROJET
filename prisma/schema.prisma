@@ -124,6 +124,10 @@ model Task {
   // Temps
   estimatedTime   Int             @default(0) // Temps estimé en minutes
   actualTime      Int             @default(0) // Temps réel passé en minutes
+
+  // Budget
+  budget          Float           @default(0) // Budget prévu pour cette tâche (FCFA)
+  budgetSpent     Float           @default(0) // Dépenses réalisées pour cette tâche (FCFA)
   
   // Chronométrage
   timerStartedAt  DateTime?       // Quand le timer a démarré
