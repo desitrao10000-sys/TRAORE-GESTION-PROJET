@@ -33,6 +33,7 @@ interface TodoItem {
   riskSeverity?: string
   budget: number
   budgetSpent: number
+  taskExpenses: Expense[]
 }
 
 interface Expense {
