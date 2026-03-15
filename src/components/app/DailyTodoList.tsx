@@ -549,6 +549,63 @@ export function DailyTodoList({ tasks, projects, risks, onTaskUpdate }: DailyTod
                       <DollarSign className="w-3 h-3 mr-1" />
                       Ajouter une dépense
                     </Button>
+                    
+                    {/* Add budget button */}
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setBudgetModal(todo)
+                        setBudgetAmount(todo.budget ? todo.budget.toString() : '')
+                      }}
+                      className="border-green-400/30 text-green-300 hover:bg-green-500/20"
+                    >
+                      <Wallet className="w-3 h-3 mr-1" />
+                      {todo.budget > 0 ? 'Modifier le budget' : 'Ajouter budget'}
+                    </Button>
+                  </div>
+                  
+                  {/* Task Budget Summary */}
+                  <div className="p-3 bg-gradient-to-br from-green-500/10 to-green-600/5 rounded-lg border border-green-400/30">
+                    <h4 className="text-sm font-medium text-green-300 mb-2 flex items-center gap-1">
+                      <Wallet className="w-4 h-4" />
+                      Budget de la tâche
+                    </h4>
+                    <div className="space-y-2">
+                      <div className="flex justify-between items-center text-xs">
+                        <span className="text-gray-400">Budget prévu</span>
+                        <span className="text-green-300 font-medium">
+                          {todo.budget.toLocaleString()} FCFA
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center text-xs">
+                        <span className="text-gray-400">Dépenses ({todoExpenses.length})</span>
+                        <span className="text-amber-300 font-medium">
+                          {todoExpenses.reduce((sum, e) => sum + e.amount, 0).toLocaleString()} FCFA
+                        </span>
+                      </div>
+                      <div className="h-2 bg-blue-900/50 rounded-full overflow-hidden">
+                        <div 
+                          className={`h-full rounded-full transition-all ${
+                            todo.budget > 0 && todoExpenses.reduce((sum, e) => sum + e.amount, 0) > todo.budget
+                              ? 'bg-gradient-to-r from-red-400 to-red-500'
+                              : 'bg-gradient-to-r from-green-400 to-green-500'
+                          }`}
+                          style={{ 
+                            width: `${todo.budget > 0 
+                              ? Math.min((todoExpenses.reduce((sum, e) => sum + e.amount, 0) / todo.budget) * 100, 100) 
+                              : 0}%` 
+                          }}
+                        />
+                      </div>
+                      <div className="flex justify-between items-center text-xs font-medium pt-1 border-t border-gray-600/50">
+                        <span className="text-gray-300">Reste disponible</span>
+                        <span className={todo.budget - todoExpenses.reduce((sum, e) => sum + e.amount, 0) >= 0 ? 'text-green-400' : 'text-red-400'}>
+                          {Math.max(0, todo.budget - todoExpenses.reduce((sum, e) => sum + e.amount, 0)).toLocaleString()} FCFA
+                        </span>
+                      </div>
+                    </div>
                   </div>
                   
                   {/* Expenses section */}
@@ -1017,6 +1074,71 @@ export function DailyTodoList({ tasks, projects, risks, onTaskUpdate }: DailyTod
                   setExpenseModal(null)
                   setExpenseAmount('')
                   setExpenseNote('')
+                }}
+                className="border-blue-400/30 text-blue-200 hover:bg-blue-500/20"
+              >
+                Annuler
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Budget Modal */}
+      {budgetModal && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
+          <div className="bg-gradient-to-br from-[#1e3a5f] to-[#0f1c2e] rounded-xl border border-green-400/30 p-6 w-full max-w-md shadow-2xl">
+            <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+              <Wallet className="w-5 h-5 text-green-400" />
+              {budgetModal.budget > 0 ? 'Modifier le budget' : 'Ajouter un budget'}
+            </h3>
+            <p className="text-sm text-gray-400 mb-4">
+              Tâche: {budgetModal.taskTitle}
+            </p>
+            
+            <div className="space-y-4">
+              <div>
+                <label className="text-sm text-gray-400 block mb-1">Montant du budget (FCFA) *</label>
+                <Input
+                  type="number"
+                  value={budgetAmount}
+                  onChange={(e) => setBudgetAmount(e.target.value)}
+                  placeholder="Ex: 500000"
+                  className="bg-[#0f1c2e] border-green-400/30 text-white"
+                  autoFocus
+                />
+              </div>
+              
+              {budgetModal.budget > 0 && (
+                <div className="p-3 bg-blue-500/10 rounded-lg border border-blue-400/20">
+                  <p className="text-xs text-blue-300">
+                    Budget actuel: {budgetModal.budget.toLocaleString()} FCFA
+                  </p>
+                  <p className="text-xs text-amber-300 mt-1">
+                    Dépenses: {projectExpenses.filter(e => 
+                      e.description?.includes(budgetModal.taskTitle) || 
+                      e.description?.toLowerCase().includes(budgetModal.taskTitle.toLowerCase())
+                    ).reduce((sum, e) => sum + e.amount, 0).toLocaleString()} FCFA
+                  </p>
+                </div>
+              )}
+            </div>
+            
+            <div className="flex gap-3 mt-6">
+              <Button
+                type="button"
+                onClick={handleAddBudget}
+                disabled={saving || !budgetAmount}
+                className="flex-1 bg-green-500 hover:bg-green-600 text-black font-semibold"
+              >
+                {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Enregistrer le budget'}
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setBudgetModal(null)
+                  setBudgetAmount('')
                 }}
                 className="border-blue-400/30 text-blue-200 hover:bg-blue-500/20"
               >

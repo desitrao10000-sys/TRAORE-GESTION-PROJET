@@ -133,7 +133,9 @@ export async function PUT(request: Request) {
       actualTime,
       dueDate, 
       assigneeId, 
-      assigneeName 
+      assigneeName,
+      budget,
+      budgetSpent
     } = body
 
     if (!id) {
@@ -165,6 +167,8 @@ export async function PUT(request: Request) {
     if (dueDate !== undefined) updateData.dueDate = dueDate ? new Date(dueDate) : null
     if (assigneeId !== undefined) updateData.assigneeId = assigneeId
     if (assigneeName !== undefined) updateData.assigneeName = assigneeName
+    if (budget !== undefined) updateData.budget = parseFloat(budget)
+    if (budgetSpent !== undefined) updateData.budgetSpent = parseFloat(budgetSpent)
 
     const task = await db.task.update({
       where: { id },
