@@ -532,27 +532,27 @@ export function DailyTodoList({ tasks, projects, risks, onTaskUpdate }: DailyTod
                       <div className="flex justify-between items-center text-xs">
                         <span className="text-gray-400">Dépenses ({todoExpenses.length})</span>
                         <span className="text-amber-300 font-medium">
-                          {todoExpenses.reduce((sum, e) => sum + e.amount, 0).toLocaleString()} FCFA
+                          {todo.budgetSpent.toLocaleString()} FCFA
                         </span>
                       </div>
                       <div className="h-2 bg-blue-900/50 rounded-full overflow-hidden">
                         <div 
                           className={`h-full rounded-full transition-all ${
-                            todo.budget > 0 && todoExpenses.reduce((sum, e) => sum + e.amount, 0) > todo.budget
+                            todo.budget > 0 && todo.budgetSpent > todo.budget
                               ? 'bg-gradient-to-r from-red-400 to-red-500'
                               : 'bg-gradient-to-r from-green-400 to-green-500'
                           }`}
                           style={{ 
                             width: `${todo.budget > 0 
-                              ? Math.min((todoExpenses.reduce((sum, e) => sum + e.amount, 0) / todo.budget) * 100, 100) 
+                              ? Math.min((todo.budgetSpent / todo.budget) * 100, 100) 
                               : 0}%` 
                           }}
                         />
                       </div>
                       <div className="flex justify-between items-center text-xs font-medium pt-1 border-t border-gray-600/50">
                         <span className="text-gray-300">Reste disponible</span>
-                        <span className={todo.budget - todoExpenses.reduce((sum, e) => sum + e.amount, 0) >= 0 ? 'text-green-400' : 'text-red-400'}>
-                          {Math.max(0, todo.budget - todoExpenses.reduce((sum, e) => sum + e.amount, 0)).toLocaleString()} FCFA
+                        <span className={todo.budget - todo.budgetSpent >= 0 ? 'text-green-400' : 'text-red-400'}>
+                          {Math.max(0, todo.budget - todo.budgetSpent).toLocaleString()} FCFA
                         </span>
                       </div>
                     </div>
@@ -624,7 +624,7 @@ export function DailyTodoList({ tasks, projects, risks, onTaskUpdate }: DailyTod
                         <div className="flex justify-between items-center text-xs pt-2 font-medium border-t border-gray-600/50">
                           <span className="text-gray-200">Total dépenses</span>
                           <span className="text-amber-400">
-                            {todoExpenses.reduce((sum, e) => sum + e.amount, 0).toLocaleString()} FCFA
+                            {todo.budgetSpent.toLocaleString()} FCFA
                           </span>
                         </div>
                       </div>
