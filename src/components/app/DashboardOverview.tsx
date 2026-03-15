@@ -5,9 +5,11 @@ import {
   Zap, 
   AlertCircle, 
   CheckCircle2,
-  TrendingUp,
-  ArrowRight,
-  Wallet
+  PlayCircle,
+  Clock,
+  CheckCircle,
+  Wallet,
+  ArrowRight
 } from 'lucide-react'
 import { Project, Task, DashboardStats } from '@/types'
 import { format } from 'date-fns'
@@ -27,8 +29,10 @@ export function DashboardOverview({ stats, projects, tasks, onProjectClick, onNa
     .filter(t => t.status === 'En retard' || t.status === 'À faire')
     .slice(0, 4)
 
-  // Projets récents
-  const recentProjects = projects.slice(0, 2)
+  // Séparer les projets par statut
+  const projectsEnCours = projects.filter(p => p.status === 'En cours' || p.status === 'Actif')
+  const projectsNonDemarres = projects.filter(p => p.status !== 'En cours' && p.status !== 'Actif' && p.status !== 'Terminé' && p.status !== 'Archivé')
+  const projectsTermines = projects.filter(p => p.status === 'Terminé' || p.status === 'Archivé')
 
   // Formater le montant en CFA
   const formatCurrency = (amount: number) => {
@@ -43,8 +47,70 @@ export function DashboardOverview({ stats, projects, tasks, onProjectClick, onNa
       case 'En retard': return 'bg-red-500/30 text-red-300'
       case 'À faire': return 'bg-gray-500/30 text-gray-300'
       case 'Validé': return 'bg-green-500/30 text-green-300'
+      case 'Terminé': return 'bg-green-500/30 text-green-300'
+      case 'Archivé': return 'bg-gray-500/30 text-gray-300'
       default: return 'bg-gray-500/30 text-gray-300'
     }
+  }
+
+  // Rendu d'une carte projet
+  const renderProjectCard = (project: Project) => (
+    <button
+      key={project.id}
+      onClick={() => onProjectClick(project.id)}
+      className="w-full p-4 hover:bg-blue-400/10 transition-colors text-left"
+    >
+      <div className="flex items-center justify-between mb-2">
+        <span className="font-medium text-white">{project.name}</span>
+        <span className={`px-2 py-0.5 rounded-full text-xs ${getStatusColor(project.status)}`}>
+          {project.status}
+        </span>
+      </div>
+      <div className="flex items-center justify-between text-sm text-blue-200 mb-2">
+        <span>{project.tasks?.length || 0} tâches</span>
+        <span>{formatCurrency(project.budgetSpent)}</span>
+      </div>
+      <div className="h-2 bg-blue-900/50 rounded-full overflow-hidden">
+        <div 
+          className="h-full bg-gradient-to-r from-amber-400 to-amber-500 rounded-full transition-all"
+          style={{ width: `${Math.min((project.budgetSpent / project.budgetPlanned) * 100, 100)}%` }}
+        />
+      </div>
+    </button>
+  )
+
+  // Rendu d'une section de projets
+  const renderProjectSection = (
+    title: string, 
+    icon: React.ReactNode, 
+    titleColor: string,
+    bgColor: string,
+    projectsList: Project[]
+  ) => {
+    if (projectsList.length === 0) return null
+    
+    return (
+      <div className="bg-gradient-to-br from-[#1e3a5f] to-[#1a2744] rounded-xl border border-blue-400/30 overflow-hidden shadow-lg shadow-blue-500/10">
+        <div className="flex items-center justify-between p-4 border-b border-blue-400/20 bg-gradient-to-r from-[#2d4a6f] to-[#1e3a5f]">
+          <div className="flex items-center gap-2">
+            {icon}
+            <h2 className="text-lg font-semibold text-white">{title}</h2>
+            <span className="text-xs bg-white/10 px-2 py-0.5 rounded-full text-blue-200">
+              {projectsList.length}
+            </span>
+          </div>
+          <button 
+            onClick={() => onNavigate('projects')}
+            className="text-amber-400 text-sm hover:text-amber-300 flex items-center gap-1 transition-colors"
+          >
+            Voir tout <ArrowRight className="w-4 h-4" />
+          </button>
+        </div>
+        <div className="divide-y divide-blue-400/20 max-h-80 overflow-y-auto">
+          {projectsList.map(renderProjectCard)}
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -106,61 +172,53 @@ export function DashboardOverview({ stats, projects, tasks, onProjectClick, onNa
         </div>
       </div>
 
-      {/* Content Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Projets récents */}
-        <div className="bg-gradient-to-br from-[#1e3a5f] to-[#1a2744] rounded-xl border border-blue-400/30 overflow-hidden shadow-lg shadow-blue-500/10">
-          <div className="flex items-center justify-between p-4 border-b border-blue-400/20 bg-gradient-to-r from-[#2d4a6f] to-[#1e3a5f]">
-            <div className="flex items-center gap-2">
-              <FolderOpen className="w-5 h-5 text-amber-400" />
-              <h2 className="text-lg font-semibold text-white">Projets récents</h2>
-            </div>
-            <button 
-              onClick={() => onNavigate('projects')}
-              className="text-amber-400 text-sm hover:text-amber-300 flex items-center gap-1 transition-colors"
-            >
-              Voir tout <ArrowRight className="w-4 h-4" />
-            </button>
-          </div>
-          <div className="divide-y divide-blue-400/20">
-            {recentProjects.map((project) => (
-              <button
-                key={project.id}
-                onClick={() => onProjectClick(project.id)}
-                className="w-full p-4 hover:bg-blue-400/10 transition-colors text-left"
-              >
-                <div className="flex items-center justify-between mb-2">
-                  <span className="font-medium text-white">{project.name}</span>
-                  <span className={`px-2 py-0.5 rounded-full text-xs ${getStatusColor(project.status)}`}>
-                    {project.status}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between text-sm text-blue-200 mb-2">
-                  <span>{project.tasks?.length || 0} tâches</span>
-                  <span>{formatCurrency(project.budgetSpent)}</span>
-                </div>
-                <div className="h-2 bg-blue-900/50 rounded-full overflow-hidden">
-                  <div 
-                    className="h-full bg-gradient-to-r from-amber-400 to-amber-500 rounded-full transition-all"
-                    style={{ width: `${Math.min((project.budgetSpent / project.budgetPlanned) * 100, 100)}%` }}
-                  />
-                </div>
-              </button>
-            ))}
-          </div>
-        </div>
+      {/* Projets par statut - 3 colonnes */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Projets en cours */}
+        {renderProjectSection(
+          'Projets en cours',
+          <PlayCircle className="w-5 h-5 text-blue-400" />,
+          'text-blue-400',
+          'bg-blue-500/10',
+          projectsEnCours
+        )}
 
-        {/* Tâches prioritaires */}
-        <div className="bg-gradient-to-br from-[#1e3a5f] to-[#1a2744] rounded-xl border border-blue-400/30 overflow-hidden shadow-lg shadow-blue-500/10">
-          <div className="flex items-center justify-between p-4 border-b border-blue-400/20 bg-gradient-to-r from-[#2d4a6f] to-[#1e3a5f]">
-            <div className="flex items-center gap-2">
-              <Zap className="w-5 h-5 text-orange-400" />
-              <h2 className="text-lg font-semibold text-white">Tâches prioritaires</h2>
-            </div>
-            <span className="text-amber-400 text-sm">{priorityTasks.length} tâches</span>
+        {/* Projets non démarrés */}
+        {renderProjectSection(
+          'Projets non démarrés',
+          <Clock className="w-5 h-5 text-amber-400" />,
+          'text-amber-400',
+          'bg-amber-500/10',
+          projectsNonDemarres
+        )}
+
+        {/* Projets terminés */}
+        {renderProjectSection(
+          'Projets terminés',
+          <CheckCircle className="w-5 h-5 text-green-400" />,
+          'text-green-400',
+          'bg-green-500/10',
+          projectsTermines
+        )}
+      </div>
+
+      {/* Tâches prioritaires */}
+      <div className="bg-gradient-to-br from-[#1e3a5f] to-[#1a2744] rounded-xl border border-blue-400/30 overflow-hidden shadow-lg shadow-blue-500/10">
+        <div className="flex items-center justify-between p-4 border-b border-blue-400/20 bg-gradient-to-r from-[#2d4a6f] to-[#1e3a5f]">
+          <div className="flex items-center gap-2">
+            <Zap className="w-5 h-5 text-orange-400" />
+            <h2 className="text-lg font-semibold text-white">Tâches prioritaires</h2>
           </div>
-          <div className="divide-y divide-blue-400/20">
-            {priorityTasks.map((task) => (
+          <span className="text-amber-400 text-sm">{priorityTasks.length} tâches</span>
+        </div>
+        <div className="divide-y divide-blue-400/20">
+          {priorityTasks.length === 0 ? (
+            <div className="p-8 text-center">
+              <CheckCircle2 className="w-10 h-10 text-green-400 mx-auto mb-2" />
+              <p className="text-blue-200">Aucune tâche prioritaire</p>
+            </div>
+          ) : (
+            priorityTasks.map((task) => (
               <div
                 key={task.id}
                 className="p-4 hover:bg-blue-400/10 transition-colors"
@@ -178,8 +236,8 @@ export function DashboardOverview({ stats, projects, tasks, onProjectClick, onNa
                   </p>
                 )}
               </div>
-            ))}
-          </div>
+            ))
+          )}
         </div>
       </div>
 

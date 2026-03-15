@@ -41,6 +41,7 @@ interface DailyTodoListProps {
 }
 
 type StatusFilter = 'Non démarré' | 'En cours' | 'Terminé'
+type DateFilter = 'en-retard' | 'a-venir' | 'termine'
 
 // Function to check if a task is late (only for tasks that haven't started)
 const isTaskLate = (task: Task): boolean => {
@@ -58,6 +59,7 @@ export function DailyTodoList({ tasks, projects, risks, onTaskUpdate }: DailyTod
   // States
   const [filterProject, setFilterProject] = useState<string>('all')
   const [filterStatuses, setFilterStatuses] = useState<StatusFilter[]>([])
+  const [filterDates, setFilterDates] = useState<DateFilter[]>([])
   const [expandedTodo, setExpandedTodo] = useState<string | null>(null)
   const [expenseModal, setExpenseModal] = useState<TodoItem | null>(null)
   const [expenseAmount, setExpenseAmount] = useState('')
@@ -81,7 +83,7 @@ export function DailyTodoList({ tasks, projects, risks, onTaskUpdate }: DailyTod
     reason: ''
   })
 
-  // Convert tasks to todo items
+  // Convert tasks to todo items (include all tasks including completed)
   const todos = useMemo(() => {
     const projectMap = new Map(projects.map(p => [p.id, p.name]))
     const riskMap = new Map<string, Risk[]>()
@@ -95,7 +97,7 @@ export function DailyTodoList({ tasks, projects, risks, onTaskUpdate }: DailyTod
     })
 
     return tasks
-      .filter(task => task.status !== 'Validé' && task.status !== 'Annulé')
+      .filter(task => task.status !== 'Annulé')
       .map(task => {
         const projectRisks = riskMap.get(task.projectId) || []
         const activeRisk = projectRisks.find(r => r.status !== 'Résolu' && r.status !== 'Accepté')
@@ -243,6 +245,17 @@ export function DailyTodoList({ tasks, projects, risks, onTaskUpdate }: DailyTod
     })
   }
 
+  // Toggle date filter
+  const toggleDateFilter = (dateFilter: DateFilter) => {
+    setFilterDates(prev => {
+      if (prev.includes(dateFilter)) {
+        return prev.filter(d => d !== dateFilter)
+      } else {
+        return [...prev, dateFilter]
+      }
+    })
+  }
+
   // Organize todos by date
   const organizedTodos = useMemo(() => {
     const todayList: TodoItem[] = []
@@ -250,8 +263,20 @@ export function DailyTodoList({ tasks, projects, risks, onTaskUpdate }: DailyTod
     const upcomingList: TodoItem[] = []
     const overdueList: TodoItem[] = []
     const noDateList: TodoItem[] = []
+    const completedList: TodoItem[] = []
+
+    // Get completed task IDs
+    const completedTaskIds = new Set(
+      tasks.filter(t => t.status === 'Validé').map(t => t.id)
+    )
 
     todos.forEach(todo => {
+      // Check if task is completed
+      if (completedTaskIds.has(todo.taskId)) {
+        completedList.push(todo)
+        return
+      }
+      
       if (!todo.deadline) {
         noDateList.push(todo)
         return
@@ -285,18 +310,31 @@ export function DailyTodoList({ tasks, projects, risks, onTaskUpdate }: DailyTod
       tomorrow: tomorrowList.sort(sortByDeadline), 
       upcoming: upcomingList.sort(sortByDeadline), 
       overdue: overdueList.sort(sortByDeadline), 
-      noDate: noDateList
+      noDate: noDateList,
+      completed: completedList
     }
-  }, [todos])
+  }, [todos, tasks])
 
   // Apply filters
-  const applyFilters = (todoList: TodoItem[]) => {
+  const applyFilters = (todoList: TodoItem[], sectionType?: string) => {
     let filtered = todoList
     if (filterProject !== 'all') {
       filtered = filtered.filter(t => t.projectId === filterProject)
     }
     if (filterStatuses.length > 0) {
       filtered = filtered.filter(t => filterStatuses.includes(t.status))
+    }
+    // Apply date filters only if some are selected
+    if (filterDates.length > 0 && sectionType) {
+      const sectionMatch: Record<string, DateFilter> = {
+        'overdue': 'en-retard',
+        'upcoming': 'a-venir',
+        'completed': 'termine'
+      }
+      const filterKey = sectionMatch[sectionType]
+      if (filterKey && !filterDates.includes(filterKey)) {
+        return []
+      }
     }
     return filtered
   }
@@ -307,8 +345,10 @@ export function DailyTodoList({ tasks, projects, risks, onTaskUpdate }: DailyTod
     notStarted: todos.filter(t => t.status === 'Non démarré').length,
     inProgress: todos.filter(t => t.status === 'En cours').length,
     completed: tasks.filter(t => t.status === 'Validé').length,
-    overdue: organizedTodos.overdue.length
-  }), [todos, tasks, organizedTodos.overdue])
+    overdue: organizedTodos.overdue.length,
+    upcoming: organizedTodos.upcoming.length,
+    completedList: organizedTodos.completed.length
+  }), [todos, tasks, organizedTodos])
 
   // Status config with 3 states
   const statusConfig: Record<string, { icon: React.ElementType; color: string; bg: string; border: string; label: string }> = {
@@ -517,8 +557,8 @@ export function DailyTodoList({ tasks, projects, risks, onTaskUpdate }: DailyTod
   }
 
   // Render section
-  const renderSection = (title: string, icon: React.ReactNode, items: TodoItem[], titleColor: string) => {
-    const filtered = applyFilters(items)
+  const renderSection = (title: string, icon: React.ReactNode, items: TodoItem[], titleColor: string, sectionType?: string) => {
+    const filtered = applyFilters(items, sectionType)
     if (filtered.length === 0) return null
 
     return (
@@ -529,7 +569,7 @@ export function DailyTodoList({ tasks, projects, risks, onTaskUpdate }: DailyTod
           <Badge variant="outline" className="ml-2 bg-transparent">{filtered.length}</Badge>
         </h2>
         <div className="space-y-2">
-          {filtered.map(todo => renderTodoItem(todo, title.toLowerCase().split(' ')[0]))}
+          {filtered.map(todo => renderTodoItem(todo, sectionType || title.toLowerCase().split(' ')[0]))}
         </div>
       </div>
     )
@@ -716,10 +756,71 @@ export function DailyTodoList({ tasks, projects, risks, onTaskUpdate }: DailyTod
               {filterStatuses.includes('Terminé') && <Check className="w-3 h-3 text-green-400" />}
             </button>
             
-            {/* Clear filters button */}
+            {/* Clear status filters button */}
             {filterStatuses.length > 0 && (
               <button
                 onClick={() => setFilterStatuses([])}
+                className="flex items-center gap-1 px-3 py-1.5 rounded-md border border-red-400/30 text-red-400 text-sm hover:bg-red-500/20 transition-all"
+              >
+                <X className="w-3 h-3" />
+                Effacer
+              </button>
+            )}
+          </div>
+        </div>
+        
+        <div className="h-10 w-px bg-blue-400/20 hidden sm:block" />
+        
+        {/* Multi-select Date filter */}
+        <div className="flex flex-col gap-2">
+          <label className="text-xs text-gray-400">Par date (multi-sélection)</label>
+          <div className="flex flex-wrap gap-2">
+            {/* En retard */}
+            <button
+              onClick={() => toggleDateFilter('en-retard')}
+              className={`flex items-center gap-2 px-3 py-1.5 rounded-md border text-sm transition-all ${
+                filterDates.includes('en-retard') 
+                  ? 'bg-red-500/30 border-red-400 text-white' 
+                  : 'bg-[#0f1c2e] border-blue-400/30 text-gray-400 hover:border-red-400/50'
+              }`}
+            >
+              <AlertTriangle className="w-4 h-4" />
+              En retard
+              {filterDates.includes('en-retard') && <Check className="w-3 h-3 text-green-400" />}
+            </button>
+            
+            {/* À venir */}
+            <button
+              onClick={() => toggleDateFilter('a-venir')}
+              className={`flex items-center gap-2 px-3 py-1.5 rounded-md border text-sm transition-all ${
+                filterDates.includes('a-venir') 
+                  ? 'bg-blue-500/30 border-blue-400 text-white' 
+                  : 'bg-[#0f1c2e] border-blue-400/30 text-gray-400 hover:border-blue-400/50'
+              }`}
+            >
+              <Calendar className="w-4 h-4" />
+              À venir
+              {filterDates.includes('a-venir') && <Check className="w-3 h-3 text-green-400" />}
+            </button>
+            
+            {/* Terminé */}
+            <button
+              onClick={() => toggleDateFilter('termine')}
+              className={`flex items-center gap-2 px-3 py-1.5 rounded-md border text-sm transition-all ${
+                filterDates.includes('termine') 
+                  ? 'bg-green-500/30 border-green-400 text-white' 
+                  : 'bg-[#0f1c2e] border-blue-400/30 text-gray-400 hover:border-green-400/50'
+              }`}
+            >
+              <CheckCircle2 className="w-4 h-4" />
+              Terminé
+              {filterDates.includes('termine') && <Check className="w-3 h-3 text-green-400" />}
+            </button>
+            
+            {/* Clear date filters button */}
+            {filterDates.length > 0 && (
+              <button
+                onClick={() => setFilterDates([])}
                 className="flex items-center gap-1 px-3 py-1.5 rounded-md border border-red-400/30 text-red-400 text-sm hover:bg-red-500/20 transition-all"
               >
                 <X className="w-3 h-3" />
@@ -744,7 +845,8 @@ export function DailyTodoList({ tasks, projects, risks, onTaskUpdate }: DailyTod
             "⚠️ En retard",
             <AlertTriangle className="w-5 h-5 text-red-400" />,
             organizedTodos.overdue,
-            "text-red-400"
+            "text-red-400",
+            "overdue"
           )}
 
           {/* Today */}
@@ -768,7 +870,8 @@ export function DailyTodoList({ tasks, projects, risks, onTaskUpdate }: DailyTod
             "📅 À venir",
             <Calendar className="w-5 h-5 text-blue-400" />,
             organizedTodos.upcoming,
-            "text-blue-400"
+            "text-blue-400",
+            "upcoming"
           )}
 
           {/* No date */}
@@ -777,6 +880,15 @@ export function DailyTodoList({ tasks, projects, risks, onTaskUpdate }: DailyTod
             <Calendar className="w-5 h-5 text-gray-400" />,
             organizedTodos.noDate,
             "text-gray-400"
+          )}
+
+          {/* Completed */}
+          {renderSection(
+            "✅ Terminé",
+            <CheckCircle2 className="w-5 h-5 text-green-400" />,
+            organizedTodos.completed,
+            "text-green-400",
+            "completed"
           )}
         </div>
       )}
