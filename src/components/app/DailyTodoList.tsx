@@ -1,11 +1,11 @@
 'use client'
 
-import { useState, useMemo } from 'react'
-import { format, isToday, isTomorrow, isPast } from 'date-fns'
+import { useState, useMemo, useEffect } from 'react'
+import { format, isToday, isTomorrow, isPast, addDays } from 'date-fns'
 import { fr } from 'date-fns/locale'
 import { 
   CheckCircle2, Circle, Clock, AlertTriangle, Calendar,
-  ChevronDown, Play, ListTodo, Check, X, Loader2, DollarSign, Filter, User
+  ChevronDown, Play, ListTodo, Check, X, Loader2, DollarSign, Filter, User, ArrowRight
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -23,7 +23,7 @@ interface TodoItem {
   taskId: string
   taskTitle: string
   taskDescription?: string | null
-  status: 'Non démarré' | 'En cours' | 'Terminé'
+  status: 'En cours' | 'En retard' | 'À venir' | 'Terminé'
   deadline?: Date | null
   responsibleName?: string | null
   constraints?: string | null
@@ -33,6 +33,14 @@ interface TodoItem {
   riskSeverity?: string
 }
 
+interface Expense {
+  id: string
+  description: string
+  amount: number
+  category: string
+  date: string
+}
+
 interface DailyTodoListProps {
   tasks: Task[]
   projects: Project[]
@@ -40,7 +48,6 @@ interface DailyTodoListProps {
   onTaskUpdate?: () => void
 }
 
-type StatusFilter = 'Non démarré' | 'En cours' | 'Terminé'
 type DateFilter = 'en-retard' | 'a-venir' | 'termine' | 'en-cours'
 
 export function DailyTodoList({ tasks, projects, risks, onTaskUpdate }: DailyTodoListProps) {
@@ -48,7 +55,6 @@ export function DailyTodoList({ tasks, projects, risks, onTaskUpdate }: DailyTod
   
   // States
   const [filterProject, setFilterProject] = useState<string>('all')
-  const [filterStatuses, setFilterStatuses] = useState<StatusFilter[]>([])
   const [filterDates, setFilterDates] = useState<DateFilter[]>([])
   const [expandedTodo, setExpandedTodo] = useState<string | null>(null)
   const [expenseModal, setExpenseModal] = useState<TodoItem | null>(null)
@@ -57,6 +63,7 @@ export function DailyTodoList({ tasks, projects, risks, onTaskUpdate }: DailyTod
   const [expenseNote, setExpenseNote] = useState('')
   const [saving, setSaving] = useState(false)
   const [updatingTaskId, setUpdatingTaskId] = useState<string | null>(null)
+  const [projectExpenses, setProjectExpenses] = useState<Expense[]>([])
   
   // Reprogramming dialog state
   const [reprogramDialog, setReprogramDialog] = useState<{
@@ -92,14 +99,28 @@ export function DailyTodoList({ tasks, projects, risks, onTaskUpdate }: DailyTod
         const projectRisks = riskMap.get(task.projectId) || []
         const activeRisk = projectRisks.find(r => r.status !== 'Résolu' && r.status !== 'Accepté')
         
-        // Map task status to todo status (3 states)
-        let todoStatus: 'Non démarré' | 'En cours' | 'Terminé' = 'Non démarré'
-        if (task.status === 'En cours') {
-          todoStatus = 'En cours'
-        } else if (task.status === 'Validé') {
+        // Determine todo status based on task status and deadline
+        let todoStatus: 'En cours' | 'En retard' | 'À venir' | 'Terminé' = 'À venir'
+        
+        if (task.status === 'Validé') {
           todoStatus = 'Terminé'
+        } else if (task.status === 'En cours') {
+          // If in progress but past deadline, it's "En retard"
+          if (task.dueDate && isPast(new Date(task.dueDate))) {
+            todoStatus = 'En retard'
+          } else {
+            todoStatus = 'En cours'
+          }
+        } else if (task.status === 'En retard') {
+          todoStatus = 'En retard'
+        } else {
+          // À faire status - check deadline
+          if (task.dueDate && isPast(new Date(task.dueDate))) {
+            todoStatus = 'En retard'
+          } else {
+            todoStatus = 'À venir'
+          }
         }
-        // Note: 'En retard' et 'À faire' sont considérés comme 'Non démarré'
         
         return {
           id: `todo-${task.id}`,
@@ -120,16 +141,35 @@ export function DailyTodoList({ tasks, projects, risks, onTaskUpdate }: DailyTod
       })
   }, [tasks, projects, risks])
 
-  // Update task status
-  const handleUpdateStatus = async (todo: TodoItem, newStatus: 'Non démarré' | 'En cours' | 'Terminé') => {
+  // Update task status - now with 4 options for reclassifying
+  const handleUpdateStatus = async (todo: TodoItem, newStatus: 'En cours' | 'En retard' | 'À venir' | 'Terminé') => {
     setUpdatingTaskId(todo.taskId)
     try {
       // Map todo status back to task status
       let taskStatus = 'À faire'
-      if (newStatus === 'En cours') {
-        taskStatus = 'En cours'
-      } else if (newStatus === 'Terminé') {
-        taskStatus = 'Validé'
+      let newDeadline = todo.deadline
+      
+      switch (newStatus) {
+        case 'Terminé':
+          taskStatus = 'Validé'
+          break
+        case 'En cours':
+          taskStatus = 'En cours'
+          break
+        case 'En retard':
+          taskStatus = 'En retard'
+          // If marking as late and no deadline, set one in the past
+          if (!todo.deadline) {
+            newDeadline = addDays(new Date(), -1)
+          }
+          break
+        case 'À venir':
+          taskStatus = 'À faire'
+          // If marking as "À venir" and no deadline, set one in the future
+          if (!todo.deadline) {
+            newDeadline = addDays(new Date(), 7)
+          }
+          break
       }
       
       const res = await fetch('/api/tasks', {
@@ -137,14 +177,16 @@ export function DailyTodoList({ tasks, projects, risks, onTaskUpdate }: DailyTod
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
           id: todo.taskId, 
-          status: taskStatus
+          status: taskStatus,
+          dueDate: newDeadline ? format(new Date(newDeadline), 'yyyy-MM-dd') : undefined
         })
       })
       const data = await res.json()
       if (data.success) {
         toast({ 
           title: newStatus === 'Terminé' ? '✅ Tâche terminée !' : 
-                newStatus === 'En cours' ? '▶ Tâche démarrée' : '⏸ Tâche réinitialisée'
+                newStatus === 'En cours' ? '▶ Tâche en cours' :
+                newStatus === 'En retard' ? '⚠️ Tâche marquée en retard' : '📅 Tâche reprogrammée'
         })
         if (onTaskUpdate) onTaskUpdate()
       } else {
@@ -173,19 +215,21 @@ export function DailyTodoList({ tasks, projects, risks, onTaskUpdate }: DailyTod
         body: JSON.stringify({
           id: reprogramDialog.todo.taskId,
           dueDate: reprogramDialog.newDate,
-          status: reprogramDialog.newStatus === 'Non démarré' ? 'À faire' : 
-                  reprogramDialog.newStatus === 'En cours' ? 'En cours' : 'À faire'
+          status: reprogramDialog.newStatus === 'Terminé' ? 'Validé' :
+                  reprogramDialog.newStatus === 'En cours' ? 'En cours' : 
+                  reprogramDialog.newStatus === 'En retard' ? 'En retard' : 'À faire'
         })
       })
       const data = await res.json()
       if (data.success) {
-        toast({ title: '📅 Tâche reprogrammée' })
+        toast({ title: '📅 Tâche reprogrammée avec succès' })
         setReprogramDialog({ open: false, todo: null, newDate: '', newStatus: '', reason: '' })
         if (onTaskUpdate) onTaskUpdate()
       } else {
         throw new Error(data.error)
       }
     } catch (error) {
+      console.error('Error reprogramming:', error)
       toast({ title: 'Erreur lors de la reprogrammation', variant: 'destructive' })
     } finally {
       setSaving(false)
@@ -194,7 +238,10 @@ export function DailyTodoList({ tasks, projects, risks, onTaskUpdate }: DailyTod
 
   // Add expense
   const handleAddExpense = async () => {
-    if (!expenseModal || !expenseAmount) return
+    if (!expenseModal || !expenseAmount) {
+      toast({ title: 'Veuillez entrer un montant', variant: 'destructive' })
+      return
+    }
     
     setSaving(true)
     try {
@@ -210,29 +257,38 @@ export function DailyTodoList({ tasks, projects, risks, onTaskUpdate }: DailyTod
       })
       const data = await res.json()
       if (data.success) {
+        toast({ title: '💰 Dépense enregistrée', description: `${parseFloat(expenseAmount).toLocaleString()} FCFA` })
         setExpenseModal(null)
         setExpenseAmount('')
         setExpenseNote('')
-        toast({ title: '💰 Dépense enregistrée', description: `${parseFloat(expenseAmount).toLocaleString()} FCFA` })
         if (onTaskUpdate) onTaskUpdate()
+      } else {
+        throw new Error(data.error)
       }
     } catch (error) {
-      toast({ title: 'Erreur', variant: 'destructive' })
+      console.error('Error adding expense:', error)
+      toast({ title: 'Erreur lors de l\'enregistrement de la dépense', variant: 'destructive' })
     } finally {
       setSaving(false)
     }
   }
 
-  // Toggle status filter
-  const toggleStatusFilter = (status: StatusFilter) => {
-    setFilterStatuses(prev => {
-      if (prev.includes(status)) {
-        return prev.filter(s => s !== status)
-      } else {
-        return [...prev, status]
+  // Fetch project expenses when a todo is expanded
+  useEffect(() => {
+    if (expandedTodo) {
+      const todo = todos.find(t => t.id === expandedTodo)
+      if (todo) {
+        fetch(`/api/expenses?projectId=${todo.projectId}`)
+          .then(res => res.json())
+          .then(data => {
+            if (data.success) {
+              setProjectExpenses(data.data || [])
+            }
+          })
+          .catch(console.error)
       }
-    })
-  }
+    }
+  }, [expandedTodo, todos])
 
   // Toggle date filter
   const toggleDateFilter = (dateFilter: DateFilter) => {
@@ -247,46 +303,26 @@ export function DailyTodoList({ tasks, projects, risks, onTaskUpdate }: DailyTod
 
   // Organize todos by date and status
   const organizedTodos = useMemo(() => {
-    const todayList: TodoItem[] = []
-    const tomorrowList: TodoItem[] = []
-    const upcomingList: TodoItem[] = []
-    const overdueList: TodoItem[] = []
-    const noDateList: TodoItem[] = []
     const inProgressList: TodoItem[] = []
+    const overdueList: TodoItem[] = []
+    const upcomingList: TodoItem[] = []
     const completedList: TodoItem[] = []
 
     todos.forEach(todo => {
-      // Check if task is completed
-      if (todo.status === 'Terminé') {
-        completedList.push(todo)
-        return
-      }
-      
-      // Check if task is in progress - separate section
-      if (todo.status === 'En cours') {
-        inProgressList.push(todo)
-        return
-      }
-      
-      // Non démarré tasks - organize by date
-      if (!todo.deadline) {
-        noDateList.push(todo)
-        return
-      }
-      
-      try {
-        const deadlineDate = new Date(todo.deadline)
-        if (isToday(deadlineDate)) {
-          todayList.push(todo)
-        } else if (isTomorrow(deadlineDate)) {
-          tomorrowList.push(todo)
-        } else if (isPast(deadlineDate)) {
+      switch (todo.status) {
+        case 'Terminé':
+          completedList.push(todo)
+          break
+        case 'En cours':
+          inProgressList.push(todo)
+          break
+        case 'En retard':
           overdueList.push(todo)
-        } else {
+          break
+        case 'À venir':
+        default:
           upcomingList.push(todo)
-        }
-      } catch {
-        noDateList.push(todo)
+          break
       }
     })
 
@@ -298,12 +334,9 @@ export function DailyTodoList({ tasks, projects, risks, onTaskUpdate }: DailyTod
     }
 
     return { 
-      today: todayList.sort(sortByDeadline), 
-      tomorrow: tomorrowList.sort(sortByDeadline), 
-      upcoming: upcomingList.sort(sortByDeadline), 
+      inProgress: inProgressList.sort(sortByDeadline),
       overdue: overdueList.sort(sortByDeadline), 
-      noDate: noDateList,
-      inProgress: inProgressList,
+      upcoming: upcomingList.sort(sortByDeadline), 
       completed: completedList
     }
   }, [todos])
@@ -313,9 +346,6 @@ export function DailyTodoList({ tasks, projects, risks, onTaskUpdate }: DailyTod
     let filtered = todoList
     if (filterProject !== 'all') {
       filtered = filtered.filter(t => t.projectId === filterProject)
-    }
-    if (filterStatuses.length > 0) {
-      filtered = filtered.filter(t => filterStatuses.includes(t.status))
     }
     // Apply date filters only if some are selected
     if (filterDates.length > 0 && sectionType) {
@@ -336,91 +366,151 @@ export function DailyTodoList({ tasks, projects, risks, onTaskUpdate }: DailyTod
   // Stats
   const stats = useMemo(() => ({
     total: todos.length,
-    notStarted: todos.filter(t => t.status === 'Non démarré').length,
     inProgress: todos.filter(t => t.status === 'En cours').length,
-    completed: todos.filter(t => t.status === 'Terminé').length,
-    overdue: organizedTodos.overdue.length,
-    upcoming: organizedTodos.upcoming.length
-  }), [todos, organizedTodos])
+    overdue: todos.filter(t => t.status === 'En retard').length,
+    upcoming: todos.filter(t => t.status === 'À venir').length,
+    completed: todos.filter(t => t.status === 'Terminé').length
+  }), [todos])
+
+  // Render status buttons with 4 options
+  const renderStatusButtons = (todo: TodoItem, isCompleted: boolean, isUpdating: boolean) => {
+    // For completed items, show only "Reprogrammer" button
+    if (isCompleted) {
+      return (
+        <div className="flex items-center gap-2 mt-3">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              setReprogramDialog({
+                open: true,
+                todo,
+                newDate: todo.deadline ? format(new Date(todo.deadline), 'yyyy-MM-dd') : format(new Date(), 'yyyy-MM-dd'),
+                newStatus: 'À venir',
+                reason: ''
+              })
+            }}
+            className="border-amber-400/30 text-amber-300 hover:bg-amber-500/20"
+          >
+            <Calendar className="w-3 h-3 mr-1" />
+            Reprogrammer
+          </Button>
+        </div>
+      )
+    }
+
+    return (
+      <div className="flex items-center gap-1 mb-3 p-1 bg-[#0f1c2e]/50 rounded-lg flex-wrap">
+        {/* En cours button */}
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation()
+            handleUpdateStatus(todo, 'En cours')
+          }}
+          disabled={isUpdating}
+          className={`flex-1 min-w-[80px] flex items-center justify-center gap-1.5 py-2 px-3 rounded-md text-xs font-medium transition-all ${
+            todo.status === 'En cours' 
+              ? 'bg-blue-500/30 text-white border border-blue-400/50' 
+              : 'text-gray-400 hover:text-blue-300 hover:bg-blue-500/10'
+          }`}
+          title="Tâche en cours"
+        >
+          {isUpdating && todo.status === 'En cours' ? <Loader2 className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4" />}
+          En cours
+        </button>
+        
+        {/* En retard button */}
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation()
+            handleUpdateStatus(todo, 'En retard')
+          }}
+          disabled={isUpdating}
+          className={`flex-1 min-w-[80px] flex items-center justify-center gap-1.5 py-2 px-3 rounded-md text-xs font-medium transition-all ${
+            todo.status === 'En retard' 
+              ? 'bg-red-500/30 text-white border border-red-400/50' 
+              : 'text-gray-400 hover:text-red-300 hover:bg-red-500/10'
+          }`}
+          title="Tâche en retard"
+        >
+          {isUpdating && todo.status === 'En retard' ? <Loader2 className="w-4 h-4 animate-spin" /> : <AlertTriangle className="w-4 h-4" />}
+          En retard
+        </button>
+        
+        {/* À venir button */}
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation()
+            handleUpdateStatus(todo, 'À venir')
+          }}
+          disabled={isUpdating}
+          className={`flex-1 min-w-[80px] flex items-center justify-center gap-1.5 py-2 px-3 rounded-md text-xs font-medium transition-all ${
+            todo.status === 'À venir' 
+              ? 'bg-amber-500/30 text-white border border-amber-400/50' 
+              : 'text-gray-400 hover:text-amber-300 hover:bg-amber-500/10'
+          }`}
+          title="Tâche à venir"
+        >
+          <Calendar className="w-4 h-4" />
+          À venir
+        </button>
+        
+        {/* Terminé button */}
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation()
+            handleUpdateStatus(todo, 'Terminé')
+          }}
+          disabled={isUpdating}
+          className={`flex-1 min-w-[80px] flex items-center justify-center gap-1.5 py-2 px-3 rounded-md text-xs font-medium transition-all ${
+            todo.status === 'Terminé' 
+              ? 'bg-green-500/30 text-white border border-green-400/50' 
+              : 'text-gray-400 hover:text-green-300 hover:bg-green-500/10'
+          }`}
+          title="Tâche terminée"
+        >
+          {isUpdating && todo.status === 'Terminé' ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
+          Terminé
+        </button>
+      </div>
+    )
+  }
 
   // Render todo item
   const renderTodoItem = (todo: TodoItem, sectionType: string, isCompleted: boolean = false) => {
-    const isOverdue = sectionType === 'overdue' || (todo.deadline && (() => {
+    const isOverdue = todo.status === 'En retard' || (todo.deadline && (() => {
       try {
         return isPast(new Date(todo.deadline))
       } catch { return false }
     })())
     const isExpanded = expandedTodo === todo.id
     const isUpdating = updatingTaskId === todo.taskId
+    const todoExpenses = projectExpenses.filter(e => 
+      e.description?.includes(todo.taskTitle) || 
+      e.description?.toLowerCase().includes(todo.taskTitle.toLowerCase())
+    )
 
     return (
       <div 
         key={todo.id}
         className={`rounded-xl border transition-all ${
-          isOverdue 
+          todo.status === 'En retard'
             ? 'bg-red-500/10 border-red-400/30' 
             : isCompleted 
             ? 'bg-green-500/10 border-green-400/30'
+            : todo.status === 'En cours'
+            ? 'bg-blue-500/10 border-blue-400/30'
             : 'bg-[#1e3a5f]/50 border-blue-400/20'
         }`}
       >
         <div className="p-4">
-          {/* Status selector - Only show if NOT completed */}
-          {!isCompleted && (
-            <div className="flex items-center gap-1 mb-3 p-1 bg-[#0f1c2e]/50 rounded-lg">
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation()
-                  handleUpdateStatus(todo, 'Non démarré')
-                }}
-                disabled={isUpdating}
-                className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-md text-xs font-medium transition-all ${
-                  todo.status === 'Non démarré' 
-                    ? 'bg-gray-500/30 text-white border border-gray-400/50' 
-                    : 'text-gray-400 hover:text-gray-300 hover:bg-gray-500/10'
-                }`}
-                title="Tâche non démarrée"
-              >
-                <Circle className="w-4 h-4" />
-                Non démarré
-              </button>
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation()
-                  handleUpdateStatus(todo, 'En cours')
-                }}
-                disabled={isUpdating}
-                className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-md text-xs font-medium transition-all ${
-                  todo.status === 'En cours' 
-                    ? 'bg-blue-500/30 text-white border border-blue-400/50' 
-                    : 'text-gray-400 hover:text-blue-300 hover:bg-blue-500/10'
-                }`}
-                title="Tâche en cours"
-              >
-                {isUpdating && todo.status === 'En cours' ? <Loader2 className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4" />}
-                En cours
-              </button>
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation()
-                  handleUpdateStatus(todo, 'Terminé')
-                }}
-                disabled={isUpdating}
-                className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-md text-xs font-medium transition-all ${
-                  todo.status === 'Terminé' 
-                    ? 'bg-green-500/30 text-white border border-green-400/50' 
-                    : 'text-gray-400 hover:text-green-300 hover:bg-green-500/10'
-                }`}
-                title="Tâche terminée"
-              >
-                <CheckCircle2 className="w-4 h-4" />
-                Terminé
-              </button>
-            </div>
-          )}
+          {/* Status selector */}
+          {renderStatusButtons(todo, isCompleted, isUpdating)}
 
           {/* Task content */}
           <div className="flex items-start gap-3">
@@ -496,42 +586,65 @@ export function DailyTodoList({ tasks, projects, risks, onTaskUpdate }: DailyTod
                     </div>
                   )}
                   
-                  {/* Action buttons - Only show if NOT completed */}
-                  {!isCompleted && (
-                    <>
-                      {/* Reprogrammer button - for overdue tasks or tasks with deadline */}
-                      {(isOverdue || todo.deadline) && (
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={() => {
-                            setReprogramDialog({
-                              open: true,
-                              todo,
-                              newDate: todo.deadline ? format(new Date(todo.deadline), 'yyyy-MM-dd') : '',
-                              newStatus: todo.status === 'En cours' ? 'En cours' : 'Non démarré',
-                              reason: ''
-                            })
-                          }}
-                          className="border-amber-400/30 text-amber-300 hover:bg-amber-500/20"
-                        >
-                          <Calendar className="w-3 h-3 mr-1" />
-                          Reprogrammer
-                        </Button>
-                      )}
-                      
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setExpenseModal(todo)}
-                        className="border-amber-400/30 text-amber-300 hover:bg-amber-500/20"
-                      >
-                        <DollarSign className="w-3 h-3 mr-1" />
-                        Ajouter une dépense
-                      </Button>
-                    </>
+                  {/* Action buttons - Show for all tasks including completed */}
+                  <div className="flex flex-wrap gap-2">
+                    {/* Reprogrammer button */}
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setReprogramDialog({
+                          open: true,
+                          todo,
+                          newDate: todo.deadline ? format(new Date(todo.deadline), 'yyyy-MM-dd') : format(new Date(), 'yyyy-MM-dd'),
+                          newStatus: isCompleted ? 'À venir' : todo.status,
+                          reason: ''
+                        })
+                      }}
+                      className="border-amber-400/30 text-amber-300 hover:bg-amber-500/20"
+                    >
+                      <Calendar className="w-3 h-3 mr-1" />
+                      Reprogrammer
+                    </Button>
+                    
+                    {/* Add expense button - show for all */}
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setExpenseModal(todo)}
+                      className="border-amber-400/30 text-amber-300 hover:bg-amber-500/20"
+                    >
+                      <DollarSign className="w-3 h-3 mr-1" />
+                      Ajouter une dépense
+                    </Button>
+                  </div>
+                  
+                  {/* Expenses list for this task */}
+                  {todoExpenses.length > 0 && (
+                    <div className="mt-3 p-3 bg-[#0f1c2e]/50 rounded-lg border border-amber-400/20">
+                      <h4 className="text-sm font-medium text-amber-300 mb-2 flex items-center gap-1">
+                        <DollarSign className="w-4 h-4" />
+                        Dépenses associées ({todoExpenses.length})
+                      </h4>
+                      <div className="space-y-1 max-h-32 overflow-y-auto">
+                        {todoExpenses.map(expense => (
+                          <div key={expense.id} className="flex justify-between items-center text-xs py-1 border-b border-gray-700/50">
+                            <span className="text-gray-300 truncate flex-1">{expense.description}</span>
+                            <span className="text-amber-300 font-medium ml-2">
+                              {expense.amount.toLocaleString()} FCFA
+                            </span>
+                          </div>
+                        ))}
+                        <div className="flex justify-between items-center text-xs pt-2 font-medium border-t border-gray-600/50">
+                          <span className="text-gray-200">Total</span>
+                          <span className="text-amber-400">
+                            {todoExpenses.reduce((sum, e) => sum + e.amount, 0).toLocaleString()} FCFA
+                          </span>
+                        </div>
+                      </div>
+                    </div>
                   )}
                   
                   {/* Comment section */}
@@ -580,26 +693,33 @@ export function DailyTodoList({ tasks, projects, risks, onTaskUpdate }: DailyTod
       {/* Instructions */}
       <div className="p-4 bg-[#1e3a5f]/30 rounded-lg border border-amber-400/20">
         <p className="text-amber-300 font-medium mb-2">📋 Comment utiliser la TODO List :</p>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm">
-          <div className="flex items-start gap-2 p-2 bg-gray-500/10 rounded-lg border border-gray-400/20">
-            <Circle className="w-5 h-5 text-gray-400 mt-0.5 flex-shrink-0" />
-            <div>
-              <p className="text-white font-medium">Non démarré</p>
-              <p className="text-gray-400 text-xs">La tâche n'a pas encore commencé</p>
-            </div>
-          </div>
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-3 text-sm">
           <div className="flex items-start gap-2 p-2 bg-blue-500/10 rounded-lg border border-blue-400/20">
             <Play className="w-5 h-5 text-blue-400 mt-0.5 flex-shrink-0" />
             <div>
               <p className="text-white font-medium">En cours</p>
-              <p className="text-gray-400 text-xs">La tâche a démarré mais n'est pas finie</p>
+              <p className="text-gray-400 text-xs">Tâche en progression</p>
+            </div>
+          </div>
+          <div className="flex items-start gap-2 p-2 bg-red-500/10 rounded-lg border border-red-400/20">
+            <AlertTriangle className="w-5 h-5 text-red-400 mt-0.5 flex-shrink-0" />
+            <div>
+              <p className="text-white font-medium">En retard</p>
+              <p className="text-gray-400 text-xs">Dépassée ou bloquée</p>
+            </div>
+          </div>
+          <div className="flex items-start gap-2 p-2 bg-amber-500/10 rounded-lg border border-amber-400/20">
+            <Calendar className="w-5 h-5 text-amber-400 mt-0.5 flex-shrink-0" />
+            <div>
+              <p className="text-white font-medium">À venir</p>
+              <p className="text-gray-400 text-xs">Planifiée pour plus tard</p>
             </div>
           </div>
           <div className="flex items-start gap-2 p-2 bg-green-500/10 rounded-lg border border-green-400/20">
             <CheckCircle2 className="w-5 h-5 text-green-400 mt-0.5 flex-shrink-0" />
             <div>
               <p className="text-white font-medium">Terminé</p>
-              <p className="text-gray-400 text-xs">La tâche est complètement finie</p>
+              <p className="text-gray-400 text-xs">Complètement finie</p>
             </div>
           </div>
         </div>
@@ -610,40 +730,12 @@ export function DailyTodoList({ tasks, projects, risks, onTaskUpdate }: DailyTod
         <Card className="bg-[#1e3a5f]/30 border-blue-400/20">
           <CardContent className="p-3">
             <div className="flex items-center gap-2">
-              <div className="p-2 bg-gray-500/20 rounded-lg">
-                <Circle className="w-4 h-4 text-gray-400" />
-              </div>
-              <div>
-                <p className="text-gray-400 text-xs">Non démarré</p>
-                <p className="text-xl font-bold text-white">{stats.notStarted}</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="bg-[#1e3a5f]/30 border-blue-400/20">
-          <CardContent className="p-3">
-            <div className="flex items-center gap-2">
               <div className="p-2 bg-blue-500/20 rounded-lg">
                 <Play className="w-4 h-4 text-blue-400" />
               </div>
               <div>
                 <p className="text-gray-400 text-xs">En cours</p>
                 <p className="text-xl font-bold text-white">{stats.inProgress}</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="bg-[#1e3a5f]/30 border-green-400/20">
-          <CardContent className="p-3">
-            <div className="flex items-center gap-2">
-              <div className="p-2 bg-green-500/20 rounded-lg">
-                <CheckCircle2 className="w-4 h-4 text-green-400" />
-              </div>
-              <div>
-                <p className="text-gray-400 text-xs">Terminé</p>
-                <p className="text-xl font-bold text-white">{stats.completed}</p>
               </div>
             </div>
           </CardContent>
@@ -667,7 +759,35 @@ export function DailyTodoList({ tasks, projects, risks, onTaskUpdate }: DailyTod
           <CardContent className="p-3">
             <div className="flex items-center gap-2">
               <div className="p-2 bg-amber-500/20 rounded-lg">
-                <ListTodo className="w-4 h-4 text-amber-400" />
+                <Calendar className="w-4 h-4 text-amber-400" />
+              </div>
+              <div>
+                <p className="text-gray-400 text-xs">À venir</p>
+                <p className="text-xl font-bold text-white">{stats.upcoming}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-[#1e3a5f]/30 border-green-400/20">
+          <CardContent className="p-3">
+            <div className="flex items-center gap-2">
+              <div className="p-2 bg-green-500/20 rounded-lg">
+                <CheckCircle2 className="w-4 h-4 text-green-400" />
+              </div>
+              <div>
+                <p className="text-gray-400 text-xs">Terminé</p>
+                <p className="text-xl font-bold text-white">{stats.completed}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-[#1e3a5f]/30 border-blue-400/20">
+          <CardContent className="p-3">
+            <div className="flex items-center gap-2">
+              <div className="p-2 bg-gray-500/20 rounded-lg">
+                <ListTodo className="w-4 h-4 text-gray-400" />
               </div>
               <div>
                 <p className="text-gray-400 text-xs">Total</p>
@@ -699,71 +819,24 @@ export function DailyTodoList({ tasks, projects, risks, onTaskUpdate }: DailyTod
         
         <div className="h-10 w-px bg-blue-400/20 hidden sm:block" />
         
-        {/* Multi-select Status filter */}
+        {/* Multi-select Date filter */}
         <div className="flex flex-col gap-2">
-          <label className="text-xs text-gray-400">Statut (multi-sélection)</label>
+          <label className="text-xs text-gray-400">Filtres (multi-sélection)</label>
           <div className="flex flex-wrap gap-2">
             <button
               type="button"
-              onClick={() => toggleStatusFilter('Non démarré')}
+              onClick={() => toggleDateFilter('en-cours')}
               className={`flex items-center gap-2 px-3 py-1.5 rounded-md border text-sm transition-all ${
-                filterStatuses.includes('Non démarré') 
-                  ? 'bg-gray-500/30 border-gray-400 text-white' 
-                  : 'bg-[#0f1c2e] border-blue-400/30 text-gray-400 hover:border-gray-400/50'
-              }`}
-            >
-              <Circle className="w-4 h-4" />
-              Non démarré
-              {filterStatuses.includes('Non démarré') && <Check className="w-3 h-3 text-green-400" />}
-            </button>
-            
-            <button
-              type="button"
-              onClick={() => toggleStatusFilter('En cours')}
-              className={`flex items-center gap-2 px-3 py-1.5 rounded-md border text-sm transition-all ${
-                filterStatuses.includes('En cours') 
+                filterDates.includes('en-cours') 
                   ? 'bg-blue-500/30 border-blue-400 text-white' 
                   : 'bg-[#0f1c2e] border-blue-400/30 text-gray-400 hover:border-blue-400/50'
               }`}
             >
               <Play className="w-4 h-4" />
               En cours
-              {filterStatuses.includes('En cours') && <Check className="w-3 h-3 text-green-400" />}
+              {filterDates.includes('en-cours') && <Check className="w-3 h-3 text-green-400" />}
             </button>
             
-            <button
-              type="button"
-              onClick={() => toggleStatusFilter('Terminé')}
-              className={`flex items-center gap-2 px-3 py-1.5 rounded-md border text-sm transition-all ${
-                filterStatuses.includes('Terminé') 
-                  ? 'bg-green-500/30 border-green-400 text-white' 
-                  : 'bg-[#0f1c2e] border-blue-400/30 text-gray-400 hover:border-green-400/50'
-              }`}
-            >
-              <CheckCircle2 className="w-4 h-4" />
-              Terminé
-              {filterStatuses.includes('Terminé') && <Check className="w-3 h-3 text-green-400" />}
-            </button>
-            
-            {filterStatuses.length > 0 && (
-              <button
-                type="button"
-                onClick={() => setFilterStatuses([])}
-                className="flex items-center gap-1 px-3 py-1.5 rounded-md border border-red-400/30 text-red-400 text-sm hover:bg-red-500/20 transition-all"
-              >
-                <X className="w-3 h-3" />
-                Effacer
-              </button>
-            )}
-          </div>
-        </div>
-        
-        <div className="h-10 w-px bg-blue-400/20 hidden sm:block" />
-        
-        {/* Multi-select Date filter */}
-        <div className="flex flex-col gap-2">
-          <label className="text-xs text-gray-400">Par date (multi-sélection)</label>
-          <div className="flex flex-wrap gap-2">
             <button
               type="button"
               onClick={() => toggleDateFilter('en-retard')}
@@ -783,27 +856,13 @@ export function DailyTodoList({ tasks, projects, risks, onTaskUpdate }: DailyTod
               onClick={() => toggleDateFilter('a-venir')}
               className={`flex items-center gap-2 px-3 py-1.5 rounded-md border text-sm transition-all ${
                 filterDates.includes('a-venir') 
-                  ? 'bg-blue-500/30 border-blue-400 text-white' 
-                  : 'bg-[#0f1c2e] border-blue-400/30 text-gray-400 hover:border-blue-400/50'
+                  ? 'bg-amber-500/30 border-amber-400 text-white' 
+                  : 'bg-[#0f1c2e] border-blue-400/30 text-gray-400 hover:border-amber-400/50'
               }`}
             >
               <Calendar className="w-4 h-4" />
               À venir
               {filterDates.includes('a-venir') && <Check className="w-3 h-3 text-green-400" />}
-            </button>
-            
-            <button
-              type="button"
-              onClick={() => toggleDateFilter('en-cours')}
-              className={`flex items-center gap-2 px-3 py-1.5 rounded-md border text-sm transition-all ${
-                filterDates.includes('en-cours') 
-                  ? 'bg-amber-500/30 border-amber-400 text-white' 
-                  : 'bg-[#0f1c2e] border-blue-400/30 text-gray-400 hover:border-amber-400/50'
-              }`}
-            >
-              <Play className="w-4 h-4" />
-              En cours
-              {filterDates.includes('en-cours') && <Check className="w-3 h-3 text-green-400" />}
             </button>
             
             <button
@@ -843,7 +902,7 @@ export function DailyTodoList({ tasks, projects, risks, onTaskUpdate }: DailyTod
         </div>
       ) : (
         <div className="space-y-8">
-          {/* In Progress - NEW SECTION */}
+          {/* In Progress */}
           {renderSection(
             "▶️ En cours",
             <Play className="w-5 h-5 text-blue-400" />,
@@ -861,47 +920,23 @@ export function DailyTodoList({ tasks, projects, risks, onTaskUpdate }: DailyTod
             "overdue"
           )}
 
-          {/* Today */}
-          {renderSection(
-            "🔴 Aujourd'hui",
-            <Calendar className="w-5 h-5 text-red-400" />,
-            organizedTodos.today,
-            "text-red-400"
-          )}
-
-          {/* Tomorrow */}
-          {renderSection(
-            "🟠 Demain",
-            <Calendar className="w-5 h-5 text-orange-400" />,
-            organizedTodos.tomorrow,
-            "text-orange-400"
-          )}
-
           {/* Upcoming */}
           {renderSection(
             "📅 À venir",
-            <Calendar className="w-5 h-5 text-blue-400" />,
+            <Calendar className="w-5 h-5 text-amber-400" />,
             organizedTodos.upcoming,
-            "text-blue-400",
+            "text-amber-400",
             "upcoming"
           )}
 
-          {/* No date */}
-          {renderSection(
-            "📌 Sans date limite",
-            <Calendar className="w-5 h-5 text-gray-400" />,
-            organizedTodos.noDate,
-            "text-gray-400"
-          )}
-
-          {/* Completed - WITHOUT status buttons */}
+          {/* Completed - with Reprogrammer button */}
           {renderSection(
             "✅ Terminé",
             <CheckCircle2 className="w-5 h-5 text-green-400" />,
             organizedTodos.completed,
             "text-green-400",
             "completed",
-            true // isCompleted = true, no status buttons
+            true // isCompleted = true
           )}
         </div>
       )}
@@ -941,8 +976,10 @@ export function DailyTodoList({ tasks, projects, risks, onTaskUpdate }: DailyTod
                   onChange={(e) => setReprogramDialog(prev => ({ ...prev, newStatus: e.target.value }))}
                   className="w-full bg-[#0f1c2e] border border-blue-400/30 rounded-md px-3 py-2 text-white"
                 >
-                  <option value="Non démarré">Non démarré</option>
+                  <option value="À venir">À venir</option>
                   <option value="En cours">En cours</option>
+                  <option value="En retard">En retard</option>
+                  <option value="Terminé">Terminé</option>
                 </select>
               </div>
               
@@ -991,6 +1028,9 @@ export function DailyTodoList({ tasks, projects, risks, onTaskUpdate }: DailyTod
             <p className="text-sm text-gray-400 mb-4">
               Tâche: {expenseModal.taskTitle}
             </p>
+            <p className="text-xs text-gray-500 mb-4">
+              Projet: {expenseModal.projectName}
+            </p>
             
             <div className="space-y-4">
               <div>
@@ -1001,6 +1041,7 @@ export function DailyTodoList({ tasks, projects, risks, onTaskUpdate }: DailyTod
                   onChange={(e) => setExpenseAmount(e.target.value)}
                   placeholder="Ex: 50000"
                   className="bg-[#0f1c2e] border-blue-400/30 text-white"
+                  autoFocus
                 />
               </div>
               
