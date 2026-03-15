@@ -372,115 +372,6 @@ export function DailyTodoList({ tasks, projects, risks, onTaskUpdate }: DailyTod
     completed: todos.filter(t => t.status === 'Terminé').length
   }), [todos])
 
-  // Render status buttons with 4 options
-  const renderStatusButtons = (todo: TodoItem, isCompleted: boolean, isUpdating: boolean) => {
-    // For completed items, show only "Reprogrammer" button
-    if (isCompleted) {
-      return (
-        <div className="flex items-center gap-2 mt-3">
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={() => {
-              setReprogramDialog({
-                open: true,
-                todo,
-                newDate: todo.deadline ? format(new Date(todo.deadline), 'yyyy-MM-dd') : format(new Date(), 'yyyy-MM-dd'),
-                newStatus: 'À venir',
-                reason: ''
-              })
-            }}
-            className="border-amber-400/30 text-amber-300 hover:bg-amber-500/20"
-          >
-            <Calendar className="w-3 h-3 mr-1" />
-            Reprogrammer
-          </Button>
-        </div>
-      )
-    }
-
-    return (
-      <div className="flex items-center gap-1 mb-3 p-1 bg-[#0f1c2e]/50 rounded-lg flex-wrap">
-        {/* En cours button */}
-        <button
-          type="button"
-          onClick={(e) => {
-            e.stopPropagation()
-            handleUpdateStatus(todo, 'En cours')
-          }}
-          disabled={isUpdating}
-          className={`flex-1 min-w-[80px] flex items-center justify-center gap-1.5 py-2 px-3 rounded-md text-xs font-medium transition-all ${
-            todo.status === 'En cours' 
-              ? 'bg-blue-500/30 text-white border border-blue-400/50' 
-              : 'text-gray-400 hover:text-blue-300 hover:bg-blue-500/10'
-          }`}
-          title="Tâche en cours"
-        >
-          {isUpdating && todo.status === 'En cours' ? <Loader2 className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4" />}
-          En cours
-        </button>
-        
-        {/* En retard button */}
-        <button
-          type="button"
-          onClick={(e) => {
-            e.stopPropagation()
-            handleUpdateStatus(todo, 'En retard')
-          }}
-          disabled={isUpdating}
-          className={`flex-1 min-w-[80px] flex items-center justify-center gap-1.5 py-2 px-3 rounded-md text-xs font-medium transition-all ${
-            todo.status === 'En retard' 
-              ? 'bg-red-500/30 text-white border border-red-400/50' 
-              : 'text-gray-400 hover:text-red-300 hover:bg-red-500/10'
-          }`}
-          title="Tâche en retard"
-        >
-          {isUpdating && todo.status === 'En retard' ? <Loader2 className="w-4 h-4 animate-spin" /> : <AlertTriangle className="w-4 h-4" />}
-          En retard
-        </button>
-        
-        {/* À venir button */}
-        <button
-          type="button"
-          onClick={(e) => {
-            e.stopPropagation()
-            handleUpdateStatus(todo, 'À venir')
-          }}
-          disabled={isUpdating}
-          className={`flex-1 min-w-[80px] flex items-center justify-center gap-1.5 py-2 px-3 rounded-md text-xs font-medium transition-all ${
-            todo.status === 'À venir' 
-              ? 'bg-amber-500/30 text-white border border-amber-400/50' 
-              : 'text-gray-400 hover:text-amber-300 hover:bg-amber-500/10'
-          }`}
-          title="Tâche à venir"
-        >
-          <Calendar className="w-4 h-4" />
-          À venir
-        </button>
-        
-        {/* Terminé button */}
-        <button
-          type="button"
-          onClick={(e) => {
-            e.stopPropagation()
-            handleUpdateStatus(todo, 'Terminé')
-          }}
-          disabled={isUpdating}
-          className={`flex-1 min-w-[80px] flex items-center justify-center gap-1.5 py-2 px-3 rounded-md text-xs font-medium transition-all ${
-            todo.status === 'Terminé' 
-              ? 'bg-green-500/30 text-white border border-green-400/50' 
-              : 'text-gray-400 hover:text-green-300 hover:bg-green-500/10'
-          }`}
-          title="Tâche terminée"
-        >
-          {isUpdating && todo.status === 'Terminé' ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
-          Terminé
-        </button>
-      </div>
-    )
-  }
-
   // Render todo item
   const renderTodoItem = (todo: TodoItem, sectionType: string, isCompleted: boolean = false) => {
     const isOverdue = todo.status === 'En retard' || (todo.deadline && (() => {
@@ -509,9 +400,6 @@ export function DailyTodoList({ tasks, projects, risks, onTaskUpdate }: DailyTod
         }`}
       >
         <div className="p-4">
-          {/* Status selector */}
-          {renderStatusButtons(todo, isCompleted, isUpdating)}
-
           {/* Task content */}
           <div className="flex items-start gap-3">
             {/* Task info */}
@@ -688,41 +576,6 @@ export function DailyTodoList({ tasks, projects, risks, onTaskUpdate }: DailyTod
         <p className="text-gray-400 text-sm mt-1">
           {format(new Date(), "'Le' d MMMM yyyy", { locale: fr })}
         </p>
-      </div>
-
-      {/* Instructions */}
-      <div className="p-4 bg-[#1e3a5f]/30 rounded-lg border border-amber-400/20">
-        <p className="text-amber-300 font-medium mb-2">📋 Comment utiliser la TODO List :</p>
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-3 text-sm">
-          <div className="flex items-start gap-2 p-2 bg-blue-500/10 rounded-lg border border-blue-400/20">
-            <Play className="w-5 h-5 text-blue-400 mt-0.5 flex-shrink-0" />
-            <div>
-              <p className="text-white font-medium">En cours</p>
-              <p className="text-gray-400 text-xs">Tâche en progression</p>
-            </div>
-          </div>
-          <div className="flex items-start gap-2 p-2 bg-red-500/10 rounded-lg border border-red-400/20">
-            <AlertTriangle className="w-5 h-5 text-red-400 mt-0.5 flex-shrink-0" />
-            <div>
-              <p className="text-white font-medium">En retard</p>
-              <p className="text-gray-400 text-xs">Dépassée ou bloquée</p>
-            </div>
-          </div>
-          <div className="flex items-start gap-2 p-2 bg-amber-500/10 rounded-lg border border-amber-400/20">
-            <Calendar className="w-5 h-5 text-amber-400 mt-0.5 flex-shrink-0" />
-            <div>
-              <p className="text-white font-medium">À venir</p>
-              <p className="text-gray-400 text-xs">Planifiée pour plus tard</p>
-            </div>
-          </div>
-          <div className="flex items-start gap-2 p-2 bg-green-500/10 rounded-lg border border-green-400/20">
-            <CheckCircle2 className="w-5 h-5 text-green-400 mt-0.5 flex-shrink-0" />
-            <div>
-              <p className="text-white font-medium">Terminé</p>
-              <p className="text-gray-400 text-xs">Complètement finie</p>
-            </div>
-          </div>
-        </div>
       </div>
 
       {/* Stats Cards */}
