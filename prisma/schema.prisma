@@ -1,0 +1,422 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================
+// DOSSIERS & ORGANISATION
+// ============================================
+
+// Dossiers pour catégoriser les projets (Infrastructure, Marketing, Environnement, etc.)
+model Folder {
+  id          String    @id @default(cuid())
+  name        String    @unique
+  icon        String?   // Nom de l'icône à afficher
+  color       String?   // Couleur associée
+  order       Int       @default(0)
+  projects    Project[]
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+// ============================================
+// MODÈLES DE PROJETS (Templates)
+// ============================================
+
+model ProjectTemplate {
+  id              String          @id @default(cuid())
+  name            String          // Ex: "Nouveau Client Web", "Projet Infrastructure"
+  description     String?
+  icon            String?
+  color           String?
+  defaultBudget   Float           @default(0)
+  isDefault       Boolean         @default(false)
+  taskTemplates   TaskTemplate[]
+  projects        Project[]
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+}
+
+model TaskTemplate {
+  id              String          @id @default(cuid())
+  title           String
+  description     String?
+  defaultPriority String          @default("Moyenne")
+  estimatedDays   Int             @default(1) // Durée estimée en jours
+  order           Int             @default(0)
+  templateId      String
+  template        ProjectTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+}
+
+// ============================================
+// PROJETS
+// ============================================
+
+model Project {
+  id              String          @id @default(cuid())
+  name            String
+  description     String?
+  objectives      String?         // Objectifs du projet (champ personnalisé)
+  constraints     String?         // Contraintes du projet
+  
+  // Statut
+  status          String          @default("En cours") // "Actif", "En cours", "Terminé", "Archivé"
+  isArchived      Boolean         @default(false)
+  isTemplate      Boolean         @default(false)
+  
+  // Budget
+  budgetPlanned   Float           @default(0)  // Budget prévu en CFA
+  budgetSpent     Float           @default(0)  // Dépenses réelles en CFA
+  
+  // Responsable
+  responsibleName String?
+  responsibleId   String?
+  
+  // Relations
+  folderId        String?
+  folder          Folder?         @relation(fields: [folderId], references: [id])
+  templateId      String?
+  template        ProjectTemplate? @relation(fields: [templateId], references: [id])
+  
+  // Entités liées
+  tasks           Task[]
+  expenses        Expense[]
+  risks           Risk[]
+  comments        Comment[]
+  delayCauses     DelayCause[]
+  dashboard       ProjectDashboard?
+  
+  // Dates
+  startDate       DateTime?
+  endDate         DateTime?
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+}
+
+// ============================================
+// TÂCHES
+// ============================================
+
+model Task {
+  id              String          @id @default(cuid())
+  title           String
+  description     String?
+  
+  // Objectifs et contraintes (champs personnalisés)
+  objectives      String?         // Objectifs de la tâche
+  constraints     String?         // Contraintes pour cette tâche
+  solutionProposed String?        // Proposition de solution
+  
+  // Statut et priorité
+  status          String          @default("À faire") // "À faire", "En cours", "En retard", "Validé", "Annulé"
+  priority        String          @default("Moyenne") // "Basse", "Moyenne", "Haute", "Urgente"
+  priorityScore   Int             @default(0) // Score calculé pour ordonnancement
+  
+  // Temps
+  estimatedTime   Int             @default(0) // Temps estimé en minutes
+  actualTime      Int             @default(0) // Temps réel passé en minutes
+  
+  // Chronométrage
+  timerStartedAt  DateTime?       // Quand le timer a démarré
+  timerRunning    Boolean         @default(false)
+  
+  // Dates
+  dueDate         DateTime?
+  startedAt       DateTime?       // Date de début réel
+  completedAt     DateTime?       // Date de fin réelle
+  
+  // Ordonnancement
+  order           Int             @default(0) // Ordre d'exécution
+  
+  // Assignation
+  assigneeId      String?
+  assigneeName    String?
+  
+  // Relations
+  projectId       String
+  project         Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  parentId        String?         // Pour les sous-tâches (1 niveau)
+  subTasks        SubTask[]
+  files           TaskFile[]
+  comments        Comment[]
+  history         ActivityHistory[]
+  timerSessions   TimerSession[]
+  
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+}
+
+// Sous-tâches (1 niveau uniquement)
+model SubTask {
+  id          String    @id @default(cuid())
+  title       String
+  isCompleted Boolean   @default(false)
+  taskId      String
+  task        Task      @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+// Fichiers attachés aux tâches
+model TaskFile {
+  id          String    @id @default(cuid())
+  name        String
+  path        String    // Chemin du fichier stocké
+  type        String    // "pdf", "excel", "image", etc.
+  size        Int       // Taille en octets
+  taskId      String
+  task        Task      @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  uploadedBy  String?   // ID de l'utilisateur
+  createdAt   DateTime  @default(now())
+}
+
+// Sessions de chronométrage
+model TimerSession {
+  id          String    @id @default(cuid())
+  taskId      String
+  task        Task      @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  startedAt   DateTime
+  stoppedAt   DateTime?
+  duration    Int       @default(0) // Durée en secondes
+  createdAt   DateTime  @default(now())
+}
+
+// ============================================
+// DÉPENSES
+// ============================================
+
+model Expense {
+  id          String    @id @default(cuid())
+  description String
+  amount      Float
+  category    String?   // Catégorie de dépense (Matériaux, Main d'œuvre, etc.)
+  date        DateTime  @default(now())
+  projectId   String
+  project     Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+// ============================================
+// RISQUES
+// ============================================
+
+model Risk {
+  id            String    @id @default(cuid())
+  title         String
+  description   String?
+  severity      String    @default("Moyenne") // "Basse", "Moyenne", "Haute", "Critique"
+  severityScore Int       @default(1) // 1-4
+  probability   String    @default("Moyenne") // "Basse", "Moyenne", "Haute"
+  probabilityScore Int    @default(1) // 1-3
+  riskScore     Int       @default(1) // severityScore x probabilityScore
+  status        String    @default("Identifié") // "Identifié", "En cours de traitement", "Résolu", "Accepté"
+  mitigation    String?   // Plan d'atténuation
+  projectId     String
+  project       Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+}
+
+// ============================================
+// CAUSES DE RETARD
+// ============================================
+
+model DelayCause {
+  id          String    @id @default(cuid())
+  name        String    // "Attente client", "Bug technique", "Ressource manquante", etc.
+  description String?
+  color       String?   // Couleur pour l'affichage
+  isDefault   Boolean   @default(false)
+  projectId   String?
+  project     Project?  @relation(fields: [projectId], references: [id])
+  usages      Int       @default(0) // Nombre de fois utilisé
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+// ============================================
+// COMMENTAIRES & DISCUSSIONS
+// ============================================
+
+model Comment {
+  id          String    @id @default(cuid())
+  content     String
+  authorId    String?
+  authorName  String
+  projectId   String?
+  project     Project?  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  taskId      String?
+  task        Task?     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  mentions    String?   // IDs des personnes mentionnées, séparés par virgule
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+// ============================================
+// HISTORIQUE D'ACTIVITÉ
+// ============================================
+
+model ActivityHistory {
+  id          String    @id @default(cuid())
+  action      String    // "created", "updated", "status_changed", "assigned", "completed", etc.
+  entityType  String    // "task", "project", "risk", "expense"
+  entityId    String
+  details     String?   // JSON avec les détails de l'action
+  userId      String?
+  userName    String?
+  taskId      String?
+  task        Task?     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  createdAt   DateTime  @default(now())
+}
+
+// ============================================
+// NOTIFICATIONS
+// ============================================
+
+model Notification {
+  id          String    @id @default(cuid())
+  type        String    // "reminder", "mention", "status_change", "daily_summary"
+  title       String
+  message     String
+  read        Boolean   @default(false)
+  userId      String?   // Destinataire
+  entityId    String?   // ID de l'entité concernée
+  entityType  String?   // "task", "project"
+  scheduledAt DateTime? // Pour les notifications programmées
+  sentAt      DateTime? // Quand la notification a été envoyée
+  createdAt   DateTime  @default(now())
+}
+
+// ============================================
+// TODO LIST JOURNALIÈRE
+// ============================================
+
+model DailyTodo {
+  id              String    @id @default(cuid())
+  date            DateTime  @default(now())
+  taskSnapshot    String    // JSON avec les infos de la tâche
+  projectId       String
+  projectName     String
+  taskId          String
+  taskTitle       String
+  status          String    @default("À faire") // "À faire", "En cours", "Validé"
+  deadline        DateTime?
+  responsibleName String?
+  constraints     String?
+  solution        String?
+  reminderDate    DateTime? // Date de rappel si non validé
+  reminderSent    Boolean   @default(false)
+  completedAt     DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+}
+
+// ============================================
+// DASHBOARD PAR PROJET
+// ============================================
+
+model ProjectDashboard {
+  id                  String    @id @default(cuid())
+  projectId           String    @unique
+  project             Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  tasksTotal          Int       @default(0)
+  tasksCompleted      Int       @default(0)
+  tasksInProgress     Int       @default(0)
+  tasksLate           Int       @default(0)
+  tasksToDo           Int       @default(0)
+  risksTotal          Int       @default(0)
+  risksCritical       Int       @default(0)
+  budgetUsedPercent   Float     @default(0)
+  lastUpdated         DateTime  @default(now())
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+}
+
+// ============================================
+// UTILISATEURS
+// ============================================
+
+model User {
+  id            String   @id @default(cuid())
+  email         String   @unique
+  name          String?
+  password      String?  // Mot de passe hashé pour l'appli
+  role          String   @default("Membre") // "Admin", "Chef de projet", "Membre"
+  avatar        String?
+  preferences   String?  // JSON avec les préférences utilisateur
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+// ============================================
+// IMPORTATIONS PDF
+// ============================================
+
+model PdfImport {
+  id          String    @id @default(cuid())
+  fileName    String
+  filePath    String?
+  status      String    @default("En attente") // "En attente", "En cours", "Terminé", "Erreur"
+  tasksCount  Int       @default(0)
+  tasksDraft  Boolean   @default(true) // Tâches créées en brouillon
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+// ============================================
+// QUESTIONNAIRE DE CRÉATION DE TÂCHE
+// ============================================
+
+model QuestionnaireTemplate {
+  id          String              @id @default(cuid())
+  name        String
+  description String?
+  isActive    Boolean             @default(true)
+  questions   QuestionnaireQuestion[]
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+}
+
+model QuestionnaireQuestion {
+  id              String              @id @default(cuid())
+  question        String
+  type            String              // "text", "select", "multiselect", "date", "number"
+  options         String?             // JSON pour les options de sélection
+  required        Boolean             @default(false)
+  order           Int                 @default(0)
+  templateId      String
+  template        QuestionnaireTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+}
+
+model QuestionnaireAnswer {
+  id              String    @id @default(cuid())
+  questionId      String
+  answer          String
+  taskId          String?
+  createdAt       DateTime  @default(now())
+}
+
+// ============================================
+// PARAMÈTRES DE L'APPLICATION
+// ============================================
+
+model AppSettings {
+  id                  String    @id @default(cuid())
+  key                 String    @unique
+  value               String
+  description         String?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+}
