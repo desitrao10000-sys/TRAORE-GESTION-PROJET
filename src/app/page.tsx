@@ -5,7 +5,7 @@ import { useAppStore, useHydration } from '@/store/appStore'
 import { Header } from '@/components/app/Header'
 import { Sidebar } from '@/components/app/Sidebar'
 import { DashboardOverview } from '@/components/app/DashboardOverview'
-import { DashboardTasks } from '@/components/app/DashboardTasks'
+import { PersonalTodoList } from '@/components/app/PersonalTodoList'
 import { DashboardWorkload } from '@/components/app/DashboardWorkload'
 import { DashboardRisks } from '@/components/app/DashboardRisks'
 import { DailyTodoList } from '@/components/app/DailyTodoList'
@@ -269,11 +269,8 @@ export default function Home() {
                   onTaskUpdate={refreshData}
                 />
               )}
-              {dashboardTab === 'tasks' && (
-                <DashboardTasks
-                  tasks={tasks}
-                  onTaskClick={handleProjectClick}
-                />
+              {dashboardTab === 'personal-todo' && (
+                <PersonalTodoList />
               )}
               {dashboardTab === 'workload' && (
                 <DashboardWorkload

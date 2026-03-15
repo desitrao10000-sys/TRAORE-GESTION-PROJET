@@ -2,7 +2,7 @@
 
 export type PageType = 'dashboard' | 'projects' | 'import-pdf'
 
-export type DashboardTab = 'overview' | 'todo' | 'tasks' | 'workload' | 'risks' | 'statistics' | 'reports'
+export type DashboardTab = 'overview' | 'todo' | 'personal-todo' | 'workload' | 'risks' | 'statistics' | 'reports'
 
 export type ProjectStatus = 'Actif' | 'En cours' | 'Terminé' | 'Archivé'
 

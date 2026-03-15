@@ -36,8 +36,8 @@ interface SidebarProps {
 
 const dashboardMenuItems: { key: DashboardTab; label: string; icon: React.ReactNode }[] = [
   { key: 'overview', label: 'Vue d\'ensemble', icon: <LayoutDashboard className="w-4 h-4" /> },
-  { key: 'todo', label: 'TODO List', icon: <ListTodo className="w-4 h-4" /> },
-  { key: 'tasks', label: 'Mes tâches', icon: <CheckSquare className="w-4 h-4" /> },
+  { key: 'todo', label: 'TODO List Projet', icon: <ListTodo className="w-4 h-4" /> },
+  { key: 'personal-todo', label: 'TODO List Personnel', icon: <CheckSquare className="w-4 h-4" /> },
   { key: 'workload', label: 'Charge de travail', icon: <BarChart3 className="w-4 h-4" /> },
   { key: 'risks', label: 'Risques', icon: <AlertTriangle className="w-4 h-4" /> },
   { key: 'statistics', label: 'Statistiques', icon: <TrendingUp className="w-4 h-4" /> },
