@@ -517,59 +517,9 @@ export function DailyTodoList({ tasks, projects, risks, onTaskUpdate }: DailyTod
                     </div>
                   )}
                   
-                  {/* Action buttons - Show for all tasks including completed */}
-                  <div className="flex flex-wrap gap-2">
-                    {/* Reprogrammer button */}
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        setReprogramDialog({
-                          open: true,
-                          todo,
-                          newDate: todo.deadline ? format(new Date(todo.deadline), 'yyyy-MM-dd') : format(new Date(), 'yyyy-MM-dd'),
-                          newStatus: isCompleted ? 'À venir' : todo.status,
-                          reason: ''
-                        })
-                      }}
-                      className="border-amber-400/30 text-amber-300 hover:bg-amber-500/20"
-                    >
-                      <Calendar className="w-3 h-3 mr-1" />
-                      Reprogrammer
-                    </Button>
-                    
-                    {/* Add expense button - show for all */}
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setExpenseModal(todo)}
-                      className="border-amber-400/30 text-amber-300 hover:bg-amber-500/20"
-                    >
-                      <DollarSign className="w-3 h-3 mr-1" />
-                      Ajouter une dépense
-                    </Button>
-                    
-                    {/* Add budget button */}
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        setBudgetModal(todo)
-                        setBudgetAmount(todo.budget ? todo.budget.toString() : '')
-                      }}
-                      className="border-green-400/30 text-green-300 hover:bg-green-500/20"
-                    >
-                      <Wallet className="w-3 h-3 mr-1" />
-                      {todo.budget > 0 ? 'Modifier le budget' : 'Ajouter budget'}
-                    </Button>
-                  </div>
-                  
-                  {/* Task Budget Summary */}
+                  {/* Task Budget Summary with Action Buttons */}
                   <div className="p-3 bg-gradient-to-br from-green-500/10 to-green-600/5 rounded-lg border border-green-400/30">
-                    <h4 className="text-sm font-medium text-green-300 mb-2 flex items-center gap-1">
+                    <h4 className="text-sm font-medium text-green-300 mb-3 flex items-center gap-1">
                       <Wallet className="w-4 h-4" />
                       Budget de la tâche
                     </h4>
@@ -607,73 +557,80 @@ export function DailyTodoList({ tasks, projects, risks, onTaskUpdate }: DailyTod
                         </span>
                       </div>
                     </div>
+                    
+                    {/* Action buttons inside Budget section */}
+                    <div className="flex flex-wrap gap-2 mt-4 pt-3 border-t border-green-400/20">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setReprogramDialog({
+                            open: true,
+                            todo,
+                            newDate: todo.deadline ? format(new Date(todo.deadline), 'yyyy-MM-dd') : format(new Date(), 'yyyy-MM-dd'),
+                            newStatus: isCompleted ? 'À venir' : todo.status,
+                            reason: ''
+                          })
+                        }}
+                        className="border-amber-400/30 text-amber-300 hover:bg-amber-500/20"
+                      >
+                        <Calendar className="w-3 h-3 mr-1" />
+                        Reprogrammer
+                      </Button>
+                      
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setExpenseModal(todo)}
+                        className="border-amber-400/30 text-amber-300 hover:bg-amber-500/20"
+                      >
+                        <DollarSign className="w-3 h-3 mr-1" />
+                        Ajouter une dépense
+                      </Button>
+                      
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setBudgetModal(todo)
+                          setBudgetAmount(todo.budget ? todo.budget.toString() : '')
+                        }}
+                        className="border-green-400/30 text-green-300 hover:bg-green-500/20"
+                      >
+                        <Wallet className="w-3 h-3 mr-1" />
+                        {todo.budget > 0 ? 'Modifier budget' : 'Ajouter budget'}
+                      </Button>
+                    </div>
                   </div>
                   
-                  {/* Expenses section */}
-                  <div className="mt-3 space-y-3">
-                    {/* Task expenses */}
-                    {todoExpenses.length > 0 && (
-                      <div className="p-3 bg-[#0f1c2e]/50 rounded-lg border border-amber-400/20">
-                        <h4 className="text-sm font-medium text-amber-300 mb-2 flex items-center gap-1">
-                          <DollarSign className="w-4 h-4" />
-                          Dépenses de cette tâche ({todoExpenses.length})
-                        </h4>
-                        <div className="space-y-1 max-h-32 overflow-y-auto">
-                          {todoExpenses.map(expense => (
-                            <div key={expense.id} className="flex justify-between items-center text-xs py-1 border-b border-gray-700/50">
-                              <span className="text-gray-300 truncate flex-1">{expense.description}</span>
-                              <span className="text-amber-300 font-medium ml-2">
-                                {expense.amount.toLocaleString()} FCFA
-                              </span>
-                            </div>
-                          ))}
-                          <div className="flex justify-between items-center text-xs pt-2 font-medium border-t border-gray-600/50">
-                            <span className="text-gray-200">Sous-total tâche</span>
-                            <span className="text-amber-400">
-                              {todoExpenses.reduce((sum, e) => sum + e.amount, 0).toLocaleString()} FCFA
+                  {/* Task expenses list */}
+                  {todoExpenses.length > 0 && (
+                    <div className="p-3 bg-[#0f1c2e]/50 rounded-lg border border-amber-400/20">
+                      <h4 className="text-sm font-medium text-amber-300 mb-2 flex items-center gap-1">
+                        <DollarSign className="w-4 h-4" />
+                        Dépenses de cette tâche ({todoExpenses.length})
+                      </h4>
+                      <div className="space-y-1 max-h-32 overflow-y-auto">
+                        {todoExpenses.map(expense => (
+                          <div key={expense.id} className="flex justify-between items-center text-xs py-1 border-b border-gray-700/50">
+                            <span className="text-gray-300 truncate flex-1">{expense.description}</span>
+                            <span className="text-amber-300 font-medium ml-2">
+                              {expense.amount.toLocaleString()} FCFA
                             </span>
                           </div>
+                        ))}
+                        <div className="flex justify-between items-center text-xs pt-2 font-medium border-t border-gray-600/50">
+                          <span className="text-gray-200">Total dépenses</span>
+                          <span className="text-amber-400">
+                            {todoExpenses.reduce((sum, e) => sum + e.amount, 0).toLocaleString()} FCFA
+                          </span>
                         </div>
                       </div>
-                    )}
-                    
-                    {/* Project total expenses */}
-                    {projectExpenses.length > 0 && (
-                      <div className="p-3 bg-gradient-to-br from-blue-500/10 to-blue-600/5 rounded-lg border border-blue-400/30">
-                        <h4 className="text-sm font-medium text-blue-300 mb-2 flex items-center gap-1">
-                          <DollarSign className="w-4 h-4" />
-                          Situation financière du projet : {todo.projectName}
-                        </h4>
-                        <div className="space-y-2">
-                          <div className="flex justify-between items-center text-xs">
-                            <span className="text-gray-400">Total dépenses projet ({projectExpenses.length} dépenses)</span>
-                            <span className="text-blue-300 font-bold text-sm">
-                              {projectExpenses.reduce((sum, e) => sum + e.amount, 0).toLocaleString()} FCFA
-                            </span>
-                          </div>
-                          {/* Budget info if available */}
-                          {projects.find(p => p.id === todo.projectId) && (
-                            <>
-                              <div className="h-2 bg-blue-900/50 rounded-full overflow-hidden">
-                                <div 
-                                  className="h-full bg-gradient-to-r from-amber-400 to-amber-500 rounded-full transition-all"
-                                  style={{ 
-                                    width: `${Math.min((projectExpenses.reduce((sum, e) => sum + e.amount, 0) / 
-                                      (projects.find(p => p.id === todo.projectId)?.budgetPlanned || 1)) * 100, 100)}%` 
-                                  }}
-                                />
-                              </div>
-                              <div className="flex justify-between items-center text-xs text-gray-400">
-                                <span>Budget prévu: {(projects.find(p => p.id === todo.projectId)?.budgetPlanned || 0).toLocaleString()} FCFA</span>
-                                <span>Reste: {((projects.find(p => p.id === todo.projectId)?.budgetPlanned || 0) - 
-                                  projectExpenses.reduce((sum, e) => sum + e.amount, 0)).toLocaleString()} FCFA</span>
-                              </div>
-                            </>
-                          )}
-                        </div>
-                      </div>
-                    )}
-                  </div>
+                    </div>
+                  )}
                   
                   {/* Comment section */}
                   <CommentSection taskId={todo.taskId} />
