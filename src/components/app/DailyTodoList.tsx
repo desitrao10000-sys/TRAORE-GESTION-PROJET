@@ -399,7 +399,11 @@ export function DailyTodoList({ tasks, projects, risks, onTaskUpdate }: DailyTod
           {/* Status selector - 3 buttons horizontal */}
           <div className="flex items-center gap-1 mb-3 p-1 bg-[#0f1c2e]/50 rounded-lg">
             <button
-              onClick={() => updateStatus(todo, 'Non démarré')}
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation()
+                updateStatus(todo, 'Non démarré')
+              }}
               disabled={isUpdating}
               className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-md text-xs font-medium transition-all ${
                 todo.status === 'Non démarré' 
@@ -412,7 +416,11 @@ export function DailyTodoList({ tasks, projects, risks, onTaskUpdate }: DailyTod
               Non démarré
             </button>
             <button
-              onClick={() => updateStatus(todo, 'En cours')}
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation()
+                updateStatus(todo, 'En cours')
+              }}
               disabled={isUpdating}
               className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-md text-xs font-medium transition-all ${
                 todo.status === 'En cours' 
@@ -425,7 +433,11 @@ export function DailyTodoList({ tasks, projects, risks, onTaskUpdate }: DailyTod
               En cours
             </button>
             <button
-              onClick={() => updateStatus(todo, 'Terminé')}
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation()
+                updateStatus(todo, 'Terminé')
+              }}
               disabled={isUpdating}
               className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-md text-xs font-medium transition-all ${
                 todo.status === 'Terminé' 
