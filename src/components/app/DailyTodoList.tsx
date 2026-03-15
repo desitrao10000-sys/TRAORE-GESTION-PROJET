@@ -5,7 +5,7 @@ import { format, isToday, isTomorrow, isPast, addDays } from 'date-fns'
 import { fr } from 'date-fns/locale'
 import { 
   CheckCircle2, Clock, AlertTriangle, Calendar,
-  ChevronDown, Play, ListTodo, Check, X, Loader2, DollarSign, Filter, User, Wallet
+  ChevronDown, Play, ListTodo, Check, X, Loader2, DollarSign, Filter, User, Wallet, Plus, Target, FileText, ClockIcon
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -86,6 +86,23 @@ export function DailyTodoList({ tasks, projects, risks, onTaskUpdate }: DailyTod
     newDate: '',
     newStatus: '',
     reason: ''
+  })
+
+  // Create task modal state
+  const [createTaskModal, setCreateTaskModal] = useState(false)
+  const [newTask, setNewTask] = useState({
+    title: '',
+    description: '',
+    objectives: '',
+    constraints: '',
+    solutionProposed: '',
+    projectId: '',
+    status: 'À faire',
+    priority: 'Moyenne',
+    dueDate: '',
+    assigneeName: '',
+    budget: '',
+    estimatedTime: ''
   })
 
   // Convert tasks to todo items (include all tasks including completed)
@@ -313,6 +330,63 @@ export function DailyTodoList({ tasks, projects, risks, onTaskUpdate }: DailyTod
     } catch (error) {
       console.error('Error adding budget:', error)
       toast({ title: 'Erreur lors de l\'enregistrement du budget', variant: 'destructive' })
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  // Create new task
+  const handleCreateTask = async () => {
+    if (!newTask.title || !newTask.projectId) {
+      toast({ title: 'Veuillez remplir le titre et sélectionner un projet', variant: 'destructive' })
+      return
+    }
+
+    setSaving(true)
+    try {
+      const res = await fetch('/api/tasks', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: newTask.title,
+          description: newTask.description || null,
+          objectives: newTask.objectives || null,
+          constraints: newTask.constraints || null,
+          solutionProposed: newTask.solutionProposed || null,
+          projectId: newTask.projectId,
+          status: newTask.status,
+          priority: newTask.priority,
+          dueDate: newTask.dueDate || null,
+          assigneeName: newTask.assigneeName || null,
+          budget: newTask.budget ? parseFloat(newTask.budget) : 0,
+          estimatedTime: newTask.estimatedTime ? parseInt(newTask.estimatedTime) : 0
+        })
+      })
+      const data = await res.json()
+      if (data.success) {
+        toast({ title: '✅ Tâche créée avec succès', description: newTask.title })
+        setCreateTaskModal(false)
+        setNewTask({
+          title: '',
+          description: '',
+          objectives: '',
+          constraints: '',
+          solutionProposed: '',
+          projectId: '',
+          status: 'À faire',
+          priority: 'Moyenne',
+          dueDate: '',
+          assigneeName: '',
+          budget: '',
+          estimatedTime: ''
+        })
+        if (onTaskUpdate) onTaskUpdate()
+      } else {
+        throw new Error(data.error)
+      }
+    } catch (error) {
+      console.error('Error creating task:', error)
+      toast({ title: 'Erreur lors de la création de la tâche', variant: 'destructive' })
     } finally {
       setSaving(false)
     }
@@ -664,14 +738,24 @@ export function DailyTodoList({ tasks, projects, risks, onTaskUpdate }: DailyTod
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold text-white flex items-center gap-2">
-          <ListTodo className="w-6 h-6 text-amber-400" />
-          TODO List Projet
-        </h1>
-        <p className="text-gray-400 text-sm mt-1">
-          {format(new Date(), "'Le' d MMMM yyyy", { locale: fr })}
-        </p>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-white flex items-center gap-2">
+            <ListTodo className="w-6 h-6 text-amber-400" />
+            TODO List Projet
+          </h1>
+          <p className="text-gray-400 text-sm mt-1">
+            {format(new Date(), "'Le' d MMMM yyyy", { locale: fr })}
+          </p>
+        </div>
+        <Button
+          type="button"
+          onClick={() => setCreateTaskModal(true)}
+          className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white font-semibold shadow-lg"
+        >
+          <Plus className="w-4 h-4 mr-2" />
+          Création tâche
+        </Button>
       </div>
 
       {/* Stats Cards */}
@@ -1096,6 +1180,232 @@ export function DailyTodoList({ tasks, projects, risks, onTaskUpdate }: DailyTod
                 onClick={() => {
                   setBudgetModal(null)
                   setBudgetAmount('')
+                }}
+                className="border-blue-400/30 text-blue-200 hover:bg-blue-500/20"
+              >
+                Annuler
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Create Task Modal */}
+      {createTaskModal && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4 overflow-y-auto">
+          <div className="bg-gradient-to-br from-[#1e3a5f] to-[#0f1c2e] rounded-xl border border-green-400/30 p-6 w-full max-w-2xl shadow-2xl my-8">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-xl font-bold text-white flex items-center gap-2">
+                <Plus className="w-6 h-6 text-green-400" />
+                Création d'une nouvelle tâche
+              </h3>
+              <button
+                type="button"
+                onClick={() => setCreateTaskModal(false)}
+                className="text-gray-400 hover:text-white transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-h-[60vh] overflow-y-auto pr-2">
+              {/* Titre */}
+              <div className="md:col-span-2">
+                <label className="text-sm text-gray-400 block mb-1">Titre de la tâche *</label>
+                <Input
+                  value={newTask.title}
+                  onChange={(e) => setNewTask(prev => ({ ...prev, title: e.target.value }))}
+                  placeholder="Ex: Réaliser l'étude de sol"
+                  className="bg-[#0f1c2e] border-blue-400/30 text-white"
+                />
+              </div>
+              
+              {/* Description */}
+              <div className="md:col-span-2">
+                <label className="text-sm text-gray-400 block mb-1">Description</label>
+                <textarea
+                  value={newTask.description}
+                  onChange={(e) => setNewTask(prev => ({ ...prev, description: e.target.value }))}
+                  placeholder="Description détaillée de la tâche..."
+                  className="w-full bg-[#0f1c2e] border border-blue-400/30 rounded-md px-3 py-2 text-white text-sm min-h-[80px] resize-none"
+                />
+              </div>
+              
+              {/* Objectifs */}
+              <div className="md:col-span-2">
+                <label className="text-sm text-gray-400 block mb-1 flex items-center gap-1">
+                  <Target className="w-3 h-3" />
+                  Objectifs
+                </label>
+                <textarea
+                  value={newTask.objectives}
+                  onChange={(e) => setNewTask(prev => ({ ...prev, objectives: e.target.value }))}
+                  placeholder="Objectifs à atteindre..."
+                  className="w-full bg-[#0f1c2e] border border-blue-400/30 rounded-md px-3 py-2 text-white text-sm min-h-[60px] resize-none"
+                />
+              </div>
+              
+              {/* Contraintes */}
+              <div>
+                <label className="text-sm text-gray-400 block mb-1 flex items-center gap-1">
+                  <AlertTriangle className="w-3 h-3" />
+                  Contraintes
+                </label>
+                <textarea
+                  value={newTask.constraints}
+                  onChange={(e) => setNewTask(prev => ({ ...prev, constraints: e.target.value }))}
+                  placeholder="Contraintes éventuelles..."
+                  className="w-full bg-[#0f1c2e] border border-blue-400/30 rounded-md px-3 py-2 text-white text-sm min-h-[60px] resize-none"
+                />
+              </div>
+              
+              {/* Solution proposée */}
+              <div>
+                <label className="text-sm text-gray-400 block mb-1 flex items-center gap-1">
+                  <CheckCircle2 className="w-3 h-3" />
+                  Solution proposée
+                </label>
+                <textarea
+                  value={newTask.solutionProposed}
+                  onChange={(e) => setNewTask(prev => ({ ...prev, solutionProposed: e.target.value }))}
+                  placeholder="Solution envisagée..."
+                  className="w-full bg-[#0f1c2e] border border-blue-400/30 rounded-md px-3 py-2 text-white text-sm min-h-[60px] resize-none"
+                />
+              </div>
+              
+              {/* Projet */}
+              <div>
+                <label className="text-sm text-gray-400 block mb-1">Projet *</label>
+                <select
+                  value={newTask.projectId}
+                  onChange={(e) => setNewTask(prev => ({ ...prev, projectId: e.target.value }))}
+                  className="w-full bg-[#0f1c2e] border border-blue-400/30 rounded-md px-3 py-2 text-white text-sm"
+                >
+                  <option value="">Sélectionner un projet</option>
+                  {projects.map(p => (
+                    <option key={p.id} value={p.id}>{p.name}</option>
+                  ))}
+                </select>
+              </div>
+              
+              {/* Responsable */}
+              <div>
+                <label className="text-sm text-gray-400 block mb-1 flex items-center gap-1">
+                  <User className="w-3 h-3" />
+                  Responsable
+                </label>
+                <Input
+                  value={newTask.assigneeName}
+                  onChange={(e) => setNewTask(prev => ({ ...prev, assigneeName: e.target.value }))}
+                  placeholder="Nom du responsable"
+                  className="bg-[#0f1c2e] border-blue-400/30 text-white"
+                />
+              </div>
+              
+              {/* Statut */}
+              <div>
+                <label className="text-sm text-gray-400 block mb-1">Statut</label>
+                <select
+                  value={newTask.status}
+                  onChange={(e) => setNewTask(prev => ({ ...prev, status: e.target.value }))}
+                  className="w-full bg-[#0f1c2e] border border-blue-400/30 rounded-md px-3 py-2 text-white text-sm"
+                >
+                  <option value="À faire">À faire</option>
+                  <option value="En cours">En cours</option>
+                  <option value="En retard">En retard</option>
+                  <option value="Validé">Validé</option>
+                </select>
+              </div>
+              
+              {/* Priorité */}
+              <div>
+                <label className="text-sm text-gray-400 block mb-1">Priorité</label>
+                <select
+                  value={newTask.priority}
+                  onChange={(e) => setNewTask(prev => ({ ...prev, priority: e.target.value }))}
+                  className="w-full bg-[#0f1c2e] border border-blue-400/30 rounded-md px-3 py-2 text-white text-sm"
+                >
+                  <option value="Basse">Basse</option>
+                  <option value="Moyenne">Moyenne</option>
+                  <option value="Haute">Haute</option>
+                  <option value="Urgente">Urgente</option>
+                </select>
+              </div>
+              
+              {/* Date limite */}
+              <div>
+                <label className="text-sm text-gray-400 block mb-1 flex items-center gap-1">
+                  <Calendar className="w-3 h-3" />
+                  Date limite
+                </label>
+                <Input
+                  type="date"
+                  value={newTask.dueDate}
+                  onChange={(e) => setNewTask(prev => ({ ...prev, dueDate: e.target.value }))}
+                  className="bg-[#0f1c2e] border-blue-400/30 text-white"
+                />
+              </div>
+              
+              {/* Temps estimé */}
+              <div>
+                <label className="text-sm text-gray-400 block mb-1 flex items-center gap-1">
+                  <ClockIcon className="w-3 h-3" />
+                  Temps estimé (minutes)
+                </label>
+                <Input
+                  type="number"
+                  value={newTask.estimatedTime}
+                  onChange={(e) => setNewTask(prev => ({ ...prev, estimatedTime: e.target.value }))}
+                  placeholder="Ex: 120"
+                  className="bg-[#0f1c2e] border-blue-400/30 text-white"
+                />
+              </div>
+              
+              {/* Budget */}
+              <div>
+                <label className="text-sm text-gray-400 block mb-1 flex items-center gap-1">
+                  <Wallet className="w-3 h-3" />
+                  Budget prévu (FCFA)
+                </label>
+                <Input
+                  type="number"
+                  value={newTask.budget}
+                  onChange={(e) => setNewTask(prev => ({ ...prev, budget: e.target.value }))}
+                  placeholder="Ex: 500000"
+                  className="bg-[#0f1c2e] border-blue-400/30 text-white"
+                />
+              </div>
+            </div>
+            
+            <div className="flex gap-3 mt-6 pt-4 border-t border-blue-400/20">
+              <Button
+                type="button"
+                onClick={handleCreateTask}
+                disabled={saving || !newTask.title || !newTask.projectId}
+                className="flex-1 bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white font-semibold"
+              >
+                {saving ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Plus className="w-4 h-4 mr-2" />}
+                Créer la tâche
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setCreateTaskModal(false)
+                  setNewTask({
+                    title: '',
+                    description: '',
+                    objectives: '',
+                    constraints: '',
+                    solutionProposed: '',
+                    projectId: '',
+                    status: 'À faire',
+                    priority: 'Moyenne',
+                    dueDate: '',
+                    assigneeName: '',
+                    budget: '',
+                    estimatedTime: ''
+                  })
                 }}
                 className="border-blue-400/30 text-blue-200 hover:bg-blue-500/20"
               >
