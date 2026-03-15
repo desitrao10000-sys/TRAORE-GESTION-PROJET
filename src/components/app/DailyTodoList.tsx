@@ -16,6 +16,14 @@ import { Task, Project, Risk } from '@/types'
 import { useToast } from '@/hooks/use-toast'
 import { CommentSection } from './CommentSection'
 
+interface Expense {
+  id: string
+  description: string
+  amount: number
+  category: string
+  date: string
+}
+
 interface TodoItem {
   id: string
   projectId: string
@@ -34,14 +42,6 @@ interface TodoItem {
   budget: number
   budgetSpent: number
   taskExpenses: Expense[]
-}
-
-interface Expense {
-  id: string
-  description: string
-  amount: number
-  category: string
-  date: string
 }
 
 interface DailyTodoListProps {
