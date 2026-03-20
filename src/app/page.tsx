@@ -1,7 +1,8 @@
 'use client'
 
-// TRAORE GESTION PROJET - Page principale avec authentification
+// NGP - New Gestion Projet - Page principale avec authentification
 // Version: 2.0 avec système d'authentification
+// Dernière mise à jour: Application fonctionnelle
 
 import { useState, useEffect, useCallback } from 'react'
 import { useAppStore, useHydration, AuthUser } from '@/store/appStore'
