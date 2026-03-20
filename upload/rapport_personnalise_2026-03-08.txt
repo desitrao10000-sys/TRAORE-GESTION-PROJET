@@ -1,0 +1,53 @@
+══════════════════════════════════════════════════════════════════════
+              RAPPORT DE GESTION DE PROJET
+                TRAORE GESTION PROJET
+══════════════════════════════════════════════════════════════════════
+
+Date: 08/03/2026
+Heure: 22:13:03
+Type de rapport: RAPPORT PERSONNALISÉ
+
+--- FILTRES APPLIQUÉS ---
+Projets: Lancement Produit Agricole
+Date début: 01/01/2026
+Date fin: 31/12/2026
+Données incluses: Tâches
+
+──────────────────────────────────────────────────────────────────────
+                   RÉSUMÉ EXÉCUTIF
+──────────────────────────────────────────────────────────────────────
+
+📊 PROJETS
+   Total: 1
+   Actifs: 1
+   Terminés: 0
+
+📋 TÂCHES
+   Total: 0
+   Validées: 0
+   En cours: 0
+   En retard: 0
+
+──────────────────────────────────────────────────────────────────────
+                  LISTE DES PROJETS
+──────────────────────────────────────────────────────────────────────
+
+1. Lancement Produit Agricole
+   Statut: En cours
+   Responsable: Amadou Diallo
+   Tâches: 0
+   Début: 15/07/2025
+   Fin prévue: 31/03/2026
+
+──────────────────────────────────────────────────────────────────────
+                  LISTE DES TÂCHES
+──────────────────────────────────────────────────────────────────────
+
+Aucune tâche trouvée.
+
+──────────────────────────────────────────────────────────────────────
+                   FIN DU RAPPORT
+──────────────────────────────────────────────────────────────────────
+
+Généré automatiquement par TRAORE GESTION PROJET
+© 2026 - Tous droits réservés

@@ -1,0 +1,15 @@
+﻿RAPPORT PERSONNALISÉ - TRAORE GESTION PROJET
+Date: 08/03/2026
+Filtres: Projets=1 sélectionnés, Du 01/01/2026, Au 31/12/2026
+
+=== RÉSUMÉ ===
+Projets;1;Actifs;1
+Tâches;0;Validées;0
+
+=== PROJETS ===
+Nom;Statut;Responsable;Budget prévu;Dépenses;Reste;Tâches;Date début;Date fin
+"Lancement Produit Agricole";En cours;Amadou Diallo;8000000;2000000;6000000;0;15/07/2025;31/03/2026
+
+=== TÂCHES ===
+Titre;Statut;Priorité;Projet;Assigné;Date limite;Description
+
