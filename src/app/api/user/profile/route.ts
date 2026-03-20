@@ -35,7 +35,7 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// PUT - Mettre à jour le profil utilisateur
+// PUT - Mettre à jour le profil utilisateur (le sien ou celui d'un membre pour le gestionnaire)
 export async function PUT(request: NextRequest) {
   try {
     const token = request.cookies.get('session_token')?.value
@@ -60,9 +60,24 @@ export async function PUT(request: NextRequest) {
     }
 
     const data = await request.json()
+    const currentRole = session.User.role?.toLowerCase()
+    const isManager = ['gestionnaire', 'admin', 'administrateur'].includes(currentRole)
+    
+    // Déterminer quel utilisateur modifier
+    // Si targetUserId est fourni et que l'utilisateur est gestionnaire, modifier ce membre
+    // Sinon, modifier son propre profil
+    const targetUserId = data.targetUserId || session.userId
+    
+    // Vérifier les permissions
+    if (targetUserId !== session.userId && !isManager) {
+      return NextResponse.json(
+        { success: false, error: 'Seul un gestionnaire peut modifier le profil d\'un autre utilisateur' },
+        { status: 403 }
+      )
+    }
 
     const user = await db.user.update({
-      where: { id: session.userId },
+      where: { id: targetUserId },
       data: {
         name: data.name,
         phone: data.phone,
@@ -86,7 +101,9 @@ export async function PUT(request: NextRequest) {
         position: user.position,
         department: user.department,
         bio: user.bio,
-        skills: user.skills ? JSON.parse(user.skills) : []
+        skills: user.skills ? JSON.parse(user.skills) : [],
+        createdAt: user.createdAt,
+        lastLoginAt: user.lastLoginAt
       }
     })
   } catch (error) {

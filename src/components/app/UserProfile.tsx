@@ -15,8 +15,8 @@ import {
   Edit2,
   Save,
   X,
-  Plus,
-  ArrowLeft
+  ArrowLeft,
+  Loader2
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -27,7 +27,7 @@ import { format } from 'date-fns'
 import { fr } from 'date-fns/locale'
 import { useAppStore } from '@/store/appStore'
 
-interface UserProfile {
+interface UserProfileData {
   id: string
   email: string
   name: string | null
@@ -37,7 +37,7 @@ interface UserProfile {
   position: string | null
   department: string | null
   bio: string | null
-  skills: string[]
+  skills: string | null
   createdAt: string
 }
 
@@ -69,9 +69,10 @@ function parseSkills(skills: string | string[] | null | undefined): string[] {
 export function UserProfile() {
   const { user, viewingUserId, setViewingUserId, setCurrentPage } = useAppStore()
   const [activeTab, setActiveTab] = useState<ProfileTab>('info')
-  const [profile, setProfile] = useState<UserProfile | null>(null)
+  const [profile, setProfile] = useState<UserProfileData | null>(null)
   const [tasks, setTasks] = useState<UserTask[]>([])
   const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
   const [isEditing, setIsEditing] = useState(false)
   const [editData, setEditData] = useState({
     name: '',
@@ -85,6 +86,14 @@ export function UserProfile() {
   // Déterminer si on regarde son propre profil ou celui d'un autre
   const isViewingOtherUser = !!viewingUserId
   const targetUserId = viewingUserId || user?.id
+  
+  // Vérifier si l'utilisateur actuel est gestionnaire
+  const isManager = user?.role?.toLowerCase() === 'gestionnaire' || 
+                    user?.role?.toLowerCase() === 'admin' ||
+                    user?.role?.toLowerCase() === 'administrateur'
+  
+  // Permettre l'édition si: c'est son propre profil OU si on est gestionnaire
+  const canEdit = !isViewingOtherUser || isManager
 
   // Charger les données du profil
   useEffect(() => {
@@ -96,16 +105,6 @@ export function UserProfile() {
           const res = await fetch(`/api/users/${viewingUserId}`)
           const data = await res.json()
           if (data.success && data.user) {
-            // Parser les skills si c'est une chaîne JSON
-            let skillsArray: string[] = []
-            if (data.user.skills) {
-              try {
-                skillsArray = typeof data.user.skills === 'string' 
-                  ? JSON.parse(data.user.skills) 
-                  : data.user.skills
-              } catch { skillsArray = [] }
-            }
-            
             setProfile(data.user)
             setEditData({
               name: data.user.name || '',
@@ -113,7 +112,7 @@ export function UserProfile() {
               position: data.user.position || '',
               department: data.user.department || '',
               bio: data.user.bio || '',
-              skills: skillsArray.join(', ')
+              skills: parseSkills(data.user.skills).join(', ')
             })
           } else {
             // Utilisateur non trouvé - retour aux paramètres
@@ -126,16 +125,6 @@ export function UserProfile() {
           const res = await fetch('/api/auth/me')
           const data = await res.json()
           if (data.success && data.user) {
-            // Parser les skills si c'est une chaîne JSON
-            let skillsArray: string[] = []
-            if (data.user.skills) {
-              try {
-                skillsArray = typeof data.user.skills === 'string' 
-                  ? JSON.parse(data.user.skills) 
-                  : data.user.skills
-              } catch { skillsArray = [] }
-            }
-            
             setProfile(data.user)
             setEditData({
               name: data.user.name || '',
@@ -143,7 +132,7 @@ export function UserProfile() {
               position: data.user.position || '',
               department: data.user.department || '',
               bio: data.user.bio || '',
-              skills: skillsArray.join(', ')
+              skills: parseSkills(data.user.skills).join(', ')
             })
           }
         }
@@ -177,13 +166,15 @@ export function UserProfile() {
     fetchTasks()
   }, [viewingUserId, setViewingUserId, setCurrentPage])
 
-  // Sauvegarder le profil (seulement pour son propre profil)
+  // Sauvegarder le profil
   const saveProfile = async () => {
+    setSaving(true)
     try {
       const res = await fetch('/api/user/profile', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          targetUserId: viewingUserId || undefined, // Inclure si on modifie un autre profil
           name: editData.name,
           phone: editData.phone,
           position: editData.position,
@@ -196,9 +187,14 @@ export function UserProfile() {
       if (data.success) {
         setProfile(data.user)
         setIsEditing(false)
+      } else {
+        alert(data.error || 'Erreur lors de la sauvegarde')
       }
     } catch (error) {
       console.error('Error saving profile:', error)
+      alert('Erreur de connexion au serveur')
+    } finally {
+      setSaving(false)
     }
   }
 
@@ -359,19 +355,19 @@ export function UserProfile() {
                 <div>
                   <div className="flex items-center justify-between mb-4">
                     <h3 className="text-lg font-semibold text-white">Informations personnelles</h3>
-                    {!isViewingOtherUser && (
+                    {canEdit && (
                       <Button
                         onClick={() => setIsEditing(!isEditing)}
                         variant="outline"
                         className="border-blue-400/30 text-white hover:bg-white/10"
                       >
-                        {isEditing ? <X className="w-4 h-4" /> : <Edit2 className="w-4 h-4" />}
+                        {isEditing ? <X className="w-4 h-4 mr-2" /> : <Edit2 className="w-4 h-4 mr-2" />}
                         {isEditing ? 'Annuler' : 'Modifier'}
                       </Button>
                     )}
                   </div>
 
-                  {isEditing && !isViewingOtherUser ? (
+                  {isEditing && canEdit ? (
                     <div className="space-y-4">
                       <div className="grid grid-cols-2 gap-4">
                         <div>
@@ -431,9 +427,17 @@ export function UserProfile() {
                           placeholder="JavaScript, React, Gestion de projet, etc."
                         />
                       </div>
-                      <Button onClick={saveProfile} className="bg-amber-500 hover:bg-amber-600 text-black font-bold">
-                        <Save className="w-4 h-4 mr-2" />
-                        Sauvegarder
+                      <Button 
+                        onClick={saveProfile} 
+                        disabled={saving}
+                        className="bg-amber-500 hover:bg-amber-600 text-black font-bold"
+                      >
+                        {saving ? (
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        ) : (
+                          <Save className="w-4 h-4 mr-2" />
+                        )}
+                        {saving ? 'Sauvegarde...' : 'Sauvegarder'}
                       </Button>
                     </div>
                   ) : (
@@ -574,10 +578,14 @@ export function UserProfile() {
                     <h3 className="text-lg font-semibold text-white">
                       {isViewingOtherUser ? 'CV' : 'Mon CV'}
                     </h3>
-                    {!isViewingOtherUser && (
-                      <Button variant="outline" className="border-blue-400/30 text-white hover:bg-white/10">
-                        <Plus className="w-4 h-4 mr-2" />
-                        Ajouter une section
+                    {canEdit && !isEditing && (
+                      <Button
+                        onClick={() => setIsEditing(true)}
+                        variant="outline"
+                        className="border-blue-400/30 text-white hover:bg-white/10"
+                      >
+                        <Edit2 className="w-4 h-4 mr-2" />
+                        Modifier
                       </Button>
                     )}
                   </div>
@@ -588,21 +596,21 @@ export function UserProfile() {
                       <Briefcase className="w-5 h-5 text-amber-400" />
                       <h4 className="text-white font-medium">Expérience professionnelle</h4>
                     </div>
-                    <div className="space-y-3">
-                      {profile?.position && (
-                        <div className="p-4 bg-blue-500/10 rounded-lg border border-blue-400/20">
-                          <div className="flex items-start justify-between">
-                            <div>
-                              <p className="text-white font-medium">{profile.position}</p>
-                              <p className="text-sm text-blue-300">{profile.department || 'Département'}</p>
-                            </div>
-                            <Badge className="bg-amber-500/20 text-amber-300 border border-amber-500/30">
-                              Actuel
-                            </Badge>
+                    {profile?.position || editData.position ? (
+                      <div className="p-4 bg-blue-500/10 rounded-lg border border-blue-400/20">
+                        <div className="flex items-start justify-between">
+                          <div>
+                            <p className="text-white font-medium">{profile?.position || editData.position}</p>
+                            <p className="text-sm text-blue-300">{profile?.department || editData.department || 'Département'}</p>
                           </div>
+                          <Badge className="bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                            Actuel
+                          </Badge>
                         </div>
-                      )}
-                    </div>
+                      </div>
+                    ) : (
+                      <p className="text-blue-300/50 text-sm">Aucune expérience renseignée</p>
+                    )}
                   </div>
 
                   {/* Compétences */}
@@ -626,14 +634,14 @@ export function UserProfile() {
                   )}
 
                   {/* Bio / Résumé */}
-                  {profile?.bio && (
+                  {(profile?.bio || editData.bio) && (
                     <div>
                       <div className="flex items-center gap-2 mb-3">
                         <FileText className="w-5 h-5 text-amber-400" />
                         <h4 className="text-white font-medium">Résumé</h4>
                       </div>
                       <div className="p-4 bg-blue-500/10 rounded-lg border border-blue-400/20">
-                        <p className="text-blue-100">{profile.bio}</p>
+                        <p className="text-blue-100">{profile?.bio || editData.bio}</p>
                       </div>
                     </div>
                   )}
