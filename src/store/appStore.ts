@@ -64,7 +64,7 @@ export const useAppStore = create<AppState>()(
       user: null,
       isAuthenticated: false,
       setUser: (user) => set({ user, isAuthenticated: !!user, lastActivity: Date.now() }),
-      logout: () => set({ user: null, isAuthenticated: false, currentPage: 'dashboard', lastActivity: Date.now() }),
+      logout: () => set({ user: null, isAuthenticated: false, currentPage: 'dashboard', viewingUserId: null, lastActivity: Date.now() }),
       
       // Navigation
       currentPage: 'dashboard',

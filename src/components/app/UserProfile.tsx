@@ -83,7 +83,7 @@ export function UserProfile() {
           // Récupérer le profil d'un autre utilisateur
           const res = await fetch(`/api/users/${viewingUserId}`)
           const data = await res.json()
-          if (data.success) {
+          if (data.success && data.user) {
             setProfile(data.user)
             setEditData({
               name: data.user.name || '',
@@ -93,12 +93,17 @@ export function UserProfile() {
               bio: data.user.bio || '',
               skills: data.user.skills?.join(', ') || ''
             })
+          } else {
+            // Utilisateur non trouvé - retour aux paramètres
+            setViewingUserId(null)
+            setCurrentPage('settings')
+            return
           }
         } else {
           // Récupérer son propre profil
           const res = await fetch('/api/auth/me')
           const data = await res.json()
-          if (data.success) {
+          if (data.success && data.user) {
             setProfile(data.user)
             setEditData({
               name: data.user.name || '',
@@ -112,6 +117,10 @@ export function UserProfile() {
         }
       } catch (error) {
         console.error('Error fetching profile:', error)
+        if (viewingUserId) {
+          setViewingUserId(null)
+          setCurrentPage('settings')
+        }
       } finally {
         setLoading(false)
       }
@@ -134,7 +143,7 @@ export function UserProfile() {
 
     fetchProfile()
     fetchTasks()
-  }, [viewingUserId])
+  }, [viewingUserId, setViewingUserId, setCurrentPage])
 
   // Sauvegarder le profil (seulement pour son propre profil)
   const saveProfile = async () => {
