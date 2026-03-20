@@ -20,7 +20,7 @@ import { ImportPDF } from '@/components/app/ImportPDF'
 import { GanttView } from '@/components/app/GanttView'
 import { LoginPage } from '@/components/app/LoginPage'
 import { Folder, Project, Task, Risk } from '@/types'
-import { Settings, Bell, Cloud, Save } from 'lucide-react'
+import { Settings, Bell } from 'lucide-react'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { MembersManagement } from '@/components/app/MembersManagement'
@@ -415,7 +415,7 @@ export default function Home() {
                 <MembersManagement />
               )}
               
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {/* Paramètres généraux */}
                 <Card className="bg-gradient-to-br from-[#1e3a5f] to-[#1a2744] border-blue-400/30">
                   <CardHeader>
@@ -463,37 +463,6 @@ export default function Home() {
                       <span className="text-blue-200">Résumé quotidien</span>
                       <input type="checkbox" className="w-4 h-4" />
                     </label>
-                  </CardContent>
-                </Card>
-
-                {/* Sauvegarde */}
-                <Card className="bg-gradient-to-br from-[#1e3a5f] to-[#1a2744] border-blue-400/30">
-                  <CardHeader>
-                    <CardTitle className="text-white flex items-center gap-2">
-                      <Cloud className="w-5 h-5 text-amber-400" />
-                      Sauvegarde
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-3">
-                    <p className="text-sm text-blue-200">
-                      Sauvegarde automatique toutes les 5 minutes
-                    </p>
-                    <Button 
-                      className="w-full bg-amber-500 hover:bg-amber-600 text-black font-bold"
-                      onClick={async () => {
-                        try {
-                          const res = await fetch('/api/backup', { method: 'POST' })
-                          if (res.ok) {
-                            alert('Sauvegarde réussie!')
-                          }
-                        } catch (error) {
-                          console.error('Backup error:', error)
-                        }
-                      }}
-                    >
-                      <Save className="w-4 h-4 mr-2" />
-                      Sauvegarder maintenant
-                    </Button>
                   </CardContent>
                 </Card>
               </div>
