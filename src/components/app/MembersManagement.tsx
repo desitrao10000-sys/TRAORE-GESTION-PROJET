@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { UserPlus, Users, Trash2, Mail, Shield, User, Loader2, AlertCircle, Check, X, RefreshCw } from 'lucide-react'
+import { UserPlus, Users, Trash2, Mail, Shield, User, Loader2, AlertCircle, Check, X, RefreshCw, LogIn } from 'lucide-react'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -22,12 +22,13 @@ interface Member {
 }
 
 export function MembersManagement() {
-  const { setCurrentPage, setViewingUserId } = useAppStore()
+  const { setCurrentPage, setViewingUserId, user: currentUser } = useAppStore()
   const [members, setMembers] = useState<Member[]>([])
   const [loading, setLoading] = useState(true)
   const [creating, setCreating] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
+  const [needsAuth, setNeedsAuth] = useState(false)
   
   // Form state
   const [newName, setNewName] = useState('')
@@ -43,10 +44,23 @@ export function MembersManagement() {
   const loadMembers = async () => {
     setLoading(true)
     setError(null)
+    setNeedsAuth(false)
     
     try {
       const res = await fetch('/api/users')
       const data = await res.json()
+      
+      if (res.status === 401) {
+        setNeedsAuth(true)
+        setError('Veuillez vous connecter avec un compte gestionnaire')
+        return
+      }
+      
+      if (res.status === 403) {
+        setNeedsAuth(true)
+        setError('Accès réservé aux gestionnaires. Connectez-vous avec: admin@traoreprojet.com')
+        return
+      }
       
       if (data.success) {
         setMembers(data.users || [])
@@ -67,14 +81,14 @@ export function MembersManagement() {
 
   // Auto-hide messages after 5 seconds
   useEffect(() => {
-    if (error || success) {
+    if ((error || success) && !needsAuth) {
       const timer = setTimeout(() => {
         setError(null)
         setSuccess(null)
       }, 5000)
       return () => clearTimeout(timer)
     }
-  }, [error, success])
+  }, [error, success, needsAuth])
 
   // Créer un membre
   const handleCreateMember = async (e: React.FormEvent) => {
@@ -153,7 +167,6 @@ export function MembersManagement() {
 
   // Voir le profil d'un membre
   const handleViewMember = (member: Member) => {
-    console.log('Viewing member profile:', member.id, member.name)
     setViewingUserId(member.id)
     setCurrentPage('profile')
   }
@@ -166,6 +179,52 @@ export function MembersManagement() {
           <div className="flex flex-col items-center justify-center gap-3">
             <Loader2 className="w-10 h-10 animate-spin text-amber-400" />
             <p className="text-blue-200">Chargement des membres...</p>
+          </div>
+        </CardContent>
+      </Card>
+    )
+  }
+
+  // État connexion requise
+  if (needsAuth) {
+    return (
+      <Card className="bg-gradient-to-br from-[#1e3a5f] to-[#1a2744] border-blue-400/30">
+        <CardContent className="py-12">
+          <div className="flex flex-col items-center justify-center gap-6 text-center">
+            <div className="w-20 h-20 rounded-full bg-amber-500/20 flex items-center justify-center">
+              <LogIn className="w-10 h-10 text-amber-400" />
+            </div>
+            <div>
+              <h3 className="text-xl font-bold text-white mb-2">Gestion des membres</h3>
+              <p className="text-blue-200 mb-4">{error}</p>
+            </div>
+            
+            <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-6 max-w-md">
+              <h4 className="text-amber-300 font-semibold mb-3 flex items-center gap-2">
+                <Shield className="w-5 h-5" />
+                Identifiants Gestionnaire
+              </h4>
+              <div className="space-y-2 text-left">
+                <div className="flex justify-between items-center bg-black/20 rounded-lg px-4 py-2">
+                  <span className="text-blue-200">Email:</span>
+                  <code className="text-amber-300 font-mono">admin@traoreprojet.com</code>
+                </div>
+                <div className="flex justify-between items-center bg-black/20 rounded-lg px-4 py-2">
+                  <span className="text-blue-200">Mot de passe:</span>
+                  <code className="text-amber-300 font-mono">admin123</code>
+                </div>
+              </div>
+              <p className="text-blue-300/70 text-sm mt-4">
+                1. Déconnectez-vous (avatar → Déconnexion)<br/>
+                2. Connectez-vous avec ces identifiants<br/>
+                3. Revenez dans Paramètres
+              </p>
+            </div>
+            
+            <p className="text-sm text-blue-300/50">
+              Connecté actuellement: {currentUser?.email || 'Non connecté'} 
+              {currentUser?.role && <span className="ml-2">({currentUser.role})</span>}
+            </p>
           </div>
         </CardContent>
       </Card>
