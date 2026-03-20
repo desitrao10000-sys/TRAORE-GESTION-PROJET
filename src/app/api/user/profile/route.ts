@@ -15,7 +15,7 @@ export async function GET(request: NextRequest) {
 
     const session = await db.session.findUnique({
       where: { token },
-      include: { user: true }
+      include: { User: true }
     })
 
     if (!session) {
@@ -25,7 +25,7 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    return NextResponse.json({ success: true, data: session.user })
+    return NextResponse.json({ success: true, data: session.User })
   } catch (error) {
     console.error('Error fetching user profile:', error)
     return NextResponse.json(
@@ -49,7 +49,7 @@ export async function PUT(request: NextRequest) {
 
     const session = await db.session.findUnique({
       where: { token },
-      include: { user: true }
+      include: { User: true }
     })
 
     if (!session) {

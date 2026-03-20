@@ -34,7 +34,7 @@ export async function GET(
 
     const project = await db.project.findUnique({
       where: { id },
-      include: { folder: true }
+      include: { Folder: true }
     })
 
     // Calculs

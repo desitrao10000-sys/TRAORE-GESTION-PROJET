@@ -15,7 +15,7 @@ export async function GET(request: NextRequest) {
     // Chercher la session
     const session = await db.session.findUnique({
       where: { token },
-      include: { user: true }
+      include: { User: true }
     })
 
     if (!session) {
@@ -36,7 +36,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Vérifier si l'utilisateur est actif
-    if (!session.user.isActive) {
+    if (!session.User.isActive) {
       return NextResponse.json(
         { success: false, error: 'Compte désactivé' },
         { status: 403 }
@@ -44,7 +44,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Utiliser uniquement les champs de base
-    const user = session.user as {
+    const user = session.User as {
       id: string
       email: string
       name: string | null

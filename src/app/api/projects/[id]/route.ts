@@ -11,14 +11,14 @@ export async function GET(
     const project = await db.project.findUnique({
       where: { id },
       include: {
-        folder: true,
-        tasks: {
+        Folder: true,
+        Task: {
           orderBy: { dueDate: 'asc' }
         },
-        expenses: {
+        Expense: {
           orderBy: { date: 'desc' }
         },
-        risks: {
+        Risk: {
           orderBy: { createdAt: 'desc' }
         }
       }

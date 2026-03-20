@@ -17,20 +17,20 @@ export async function GET(request: Request) {
     const projects = await db.project.findMany({
       where,
       include: {
-        folder: true,
-        tasks: {
+        Folder: true,
+        Task: {
           select: { id: true, status: true, priority: true, dueDate: true }
         },
-        expenses: {
+        Expense: {
           select: { id: true, amount: true, category: true, date: true }
         },
-        risks: {
+        Risk: {
           select: { id: true, severity: true, status: true }
         },
-        template: {
+        ProjectTemplate: {
           select: { id: true, name: true }
         },
-        dashboard: true
+        ProjectDashboard: true
       },
       orderBy: { createdAt: 'desc' }
     })
@@ -76,8 +76,8 @@ export async function POST(request: Request) {
         endDate: endDate ? new Date(endDate) : null
       },
       include: {
-        folder: true,
-        template: true
+        Folder: true,
+        ProjectTemplate: true
       }
     })
 
@@ -85,13 +85,13 @@ export async function POST(request: Request) {
     if (templateId) {
       const template = await db.projectTemplate.findUnique({
         where: { id: templateId },
-        include: { taskTemplates: true }
+        include: { TaskTemplate: true }
       })
 
-      if (template?.taskTemplates.length) {
+      if (template?.TaskTemplate.length) {
         const now = new Date()
         await db.task.createMany({
-          data: template.taskTemplates.map((tt, index) => ({
+          data: template.TaskTemplate.map((tt, index) => ({
             title: tt.title,
             description: tt.description,
             priority: tt.defaultPriority,

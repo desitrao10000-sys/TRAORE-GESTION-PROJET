@@ -6,7 +6,7 @@ export async function GET() {
   try {
     const templates = await db.projectTemplate.findMany({
       include: {
-        taskTemplates: {
+        TaskTemplate: {
           orderBy: { order: 'asc' }
         }
       },
@@ -32,7 +32,7 @@ export async function POST(request: Request) {
         icon,
         color,
         defaultBudget: defaultBudget || 0,
-        taskTemplates: taskTemplates ? {
+        TaskTemplate: taskTemplates ? {
           create: taskTemplates.map((tt: { title: string; description?: string; defaultPriority?: string; estimatedDays?: number; order?: number }, index: number) => ({
             title: tt.title,
             description: tt.description,
@@ -43,7 +43,7 @@ export async function POST(request: Request) {
         } : undefined
       },
       include: {
-        taskTemplates: true
+        TaskTemplate: true
       }
     })
 
