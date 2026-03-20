@@ -354,21 +354,24 @@ model TimerSession {
 }
 
 model User {
-  id          String    @id
-  email       String    @unique
-  name        String?
-  password    String?
-  role        String    @default("membre")
-  avatar      String?
-  phone       String?
-  position    String?
-  department  String?
-  bio         String?
-  skills      String?
-  preferences String?
-  isActive    Boolean   @default(true)
-  lastLoginAt DateTime?
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime
-  Session     Session[]
+  id            String    @id
+  email         String    @unique
+  name          String?
+  password      String?
+  role          String    @default("membre")
+  avatar        String?
+  phone         String?
+  position      String?
+  department    String?
+  bio           String?
+  skills        String?
+  experience    String?   // JSON: [{title, company, startDate, endDate, description}]
+  education     String?   // JSON: [{degree, school, year, field}]
+  certifications String?  // JSON: [{name, issuer, year, url}]
+  preferences   String?
+  isActive      Boolean   @default(true)
+  lastLoginAt   DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime
+  Session       Session[]
 }

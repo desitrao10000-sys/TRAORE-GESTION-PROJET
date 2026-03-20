@@ -1,5 +1,6 @@
 'use client'
 
+import { useState, useEffect } from 'react'
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { PageType, DashboardTab } from '@/types'
@@ -98,9 +99,8 @@ export const useAppStore = create<AppState>()(
       setViewingUserId: (userId) => set({ viewingUserId: userId, lastActivity: Date.now() }),
     }),
     {
-      name: 'traore-gestion-projet-storage', // Nom unique pour localStorage
+      name: 'traore-gestion-projet-storage',
       partialize: (state) => ({
-        // Seulement les données qu'on veut persister
         user: state.user,
         isAuthenticated: state.isAuthenticated,
         currentPage: state.currentPage,
@@ -143,6 +143,3 @@ export const useHydration = () => {
   
   return hydrated
 }
-
-// Import nécessaire pour le hook
-import { useState, useEffect } from 'react'

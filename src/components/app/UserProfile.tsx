@@ -16,7 +16,11 @@ import {
   Save,
   X,
   ArrowLeft,
-  Loader2
+  Loader2,
+  Plus,
+  Trash2,
+  GraduationCap,
+  ShieldCheck
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -38,6 +42,9 @@ interface UserProfileData {
   department: string | null
   bio: string | null
   skills: string | null
+  experience: string | null
+  education: string | null
+  certifications: string | null
   createdAt: string
 }
 
@@ -50,6 +57,28 @@ interface UserTask {
   projectName: string
   assigneeId: string | null
   Project?: { name: string }
+}
+
+interface ExperienceItem {
+  title: string
+  company: string
+  startDate: string
+  endDate: string
+  description: string
+}
+
+interface EducationItem {
+  degree: string
+  school: string
+  year: string
+  field: string
+}
+
+interface CertificationItem {
+  name: string
+  issuer: string
+  year: string
+  url: string
 }
 
 type ProfileTab = 'info' | 'tasks' | 'activity' | 'cv'
@@ -66,6 +95,18 @@ function parseSkills(skills: string | string[] | null | undefined): string[] {
   }
 }
 
+// Fonction utilitaire pour parser les données JSON
+function parseJSONData<T>(data: string | T[] | null | undefined): T[] {
+  if (!data) return []
+  if (Array.isArray(data)) return data
+  try {
+    const parsed = JSON.parse(data)
+    return Array.isArray(parsed) ? parsed : []
+  } catch {
+    return []
+  }
+}
+
 export function UserProfile() {
   const { user, viewingUserId, setViewingUserId, setCurrentPage } = useAppStore()
   const [activeTab, setActiveTab] = useState<ProfileTab>('info')
@@ -74,6 +115,7 @@ export function UserProfile() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [isEditing, setIsEditing] = useState(false)
+  const [isEditingCV, setIsEditingCV] = useState(false)
   const [editData, setEditData] = useState({
     name: '',
     phone: '',
@@ -81,6 +123,13 @@ export function UserProfile() {
     department: '',
     bio: '',
     skills: ''
+  })
+  
+  // États pour le CV
+  const [cvData, setCvData] = useState({
+    experience: [] as ExperienceItem[],
+    education: [] as EducationItem[],
+    certifications: [] as CertificationItem[]
   })
 
   // Déterminer si on regarde son propre profil ou celui d'un autre
@@ -114,6 +163,11 @@ export function UserProfile() {
               bio: data.user.bio || '',
               skills: parseSkills(data.user.skills).join(', ')
             })
+            setCvData({
+              experience: parseJSONData<ExperienceItem>(data.user.experience),
+              education: parseJSONData<EducationItem>(data.user.education),
+              certifications: parseJSONData<CertificationItem>(data.user.certifications)
+            })
           } else {
             // Utilisateur non trouvé - retour aux paramètres
             setViewingUserId(null)
@@ -133,6 +187,11 @@ export function UserProfile() {
               department: data.user.department || '',
               bio: data.user.bio || '',
               skills: parseSkills(data.user.skills).join(', ')
+            })
+            setCvData({
+              experience: parseJSONData<ExperienceItem>(data.user.experience),
+              education: parseJSONData<EducationItem>(data.user.education),
+              certifications: parseJSONData<CertificationItem>(data.user.certifications)
             })
           }
         }
@@ -174,7 +233,7 @@ export function UserProfile() {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          targetUserId: viewingUserId || undefined, // Inclure si on modifie un autre profil
+          targetUserId: viewingUserId || undefined,
           name: editData.name,
           phone: editData.phone,
           position: editData.position,
@@ -198,6 +257,35 @@ export function UserProfile() {
     }
   }
 
+  // Sauvegarder le CV
+  const saveCV = async () => {
+    setSaving(true)
+    try {
+      const res = await fetch('/api/user/profile', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          targetUserId: viewingUserId || undefined,
+          experience: cvData.experience,
+          education: cvData.education,
+          certifications: cvData.certifications
+        })
+      })
+      const data = await res.json()
+      if (data.success) {
+        setProfile(prev => prev ? { ...prev, ...data.user } : null)
+        setIsEditingCV(false)
+      } else {
+        alert(data.error || 'Erreur lors de la sauvegarde')
+      }
+    } catch (error) {
+      console.error('Error saving CV:', error)
+      alert('Erreur de connexion au serveur')
+    } finally {
+      setSaving(false)
+    }
+  }
+
   // Retour à la liste des membres
   const handleBack = () => {
     setViewingUserId(null)
@@ -214,6 +302,72 @@ export function UserProfile() {
     inProgress: userTasks.filter(t => t.status === 'En cours').length,
     todo: userTasks.filter(t => t.status === 'À faire').length,
     late: userTasks.filter(t => t.status === 'En retard').length
+  }
+
+  // Fonctions pour gérer les expériences
+  const addExperience = () => {
+    setCvData(prev => ({
+      ...prev,
+      experience: [...prev.experience, { title: '', company: '', startDate: '', endDate: '', description: '' }]
+    }))
+  }
+
+  const updateExperience = (index: number, field: keyof ExperienceItem, value: string) => {
+    setCvData(prev => ({
+      ...prev,
+      experience: prev.experience.map((exp, i) => i === index ? { ...exp, [field]: value } : exp)
+    }))
+  }
+
+  const removeExperience = (index: number) => {
+    setCvData(prev => ({
+      ...prev,
+      experience: prev.experience.filter((_, i) => i !== index)
+    }))
+  }
+
+  // Fonctions pour gérer les formations
+  const addEducation = () => {
+    setCvData(prev => ({
+      ...prev,
+      education: [...prev.education, { degree: '', school: '', year: '', field: '' }]
+    }))
+  }
+
+  const updateEducation = (index: number, field: keyof EducationItem, value: string) => {
+    setCvData(prev => ({
+      ...prev,
+      education: prev.education.map((edu, i) => i === index ? { ...edu, [field]: value } : edu)
+    }))
+  }
+
+  const removeEducation = (index: number) => {
+    setCvData(prev => ({
+      ...prev,
+      education: prev.education.filter((_, i) => i !== index)
+    }))
+  }
+
+  // Fonctions pour gérer les certifications
+  const addCertification = () => {
+    setCvData(prev => ({
+      ...prev,
+      certifications: [...prev.certifications, { name: '', issuer: '', year: '', url: '' }]
+    }))
+  }
+
+  const updateCertification = (index: number, field: keyof CertificationItem, value: string) => {
+    setCvData(prev => ({
+      ...prev,
+      certifications: prev.certifications.map((cert, i) => i === index ? { ...cert, [field]: value } : cert)
+    }))
+  }
+
+  const removeCertification = (index: number) => {
+    setCvData(prev => ({
+      ...prev,
+      certifications: prev.certifications.filter((_, i) => i !== index)
+    }))
   }
 
   // Onglets
@@ -578,71 +732,430 @@ export function UserProfile() {
                     <h3 className="text-lg font-semibold text-white">
                       {isViewingOtherUser ? 'CV' : 'Mon CV'}
                     </h3>
-                    {canEdit && !isEditing && (
+                    {canEdit && !isEditingCV && (
                       <Button
-                        onClick={() => setIsEditing(true)}
+                        onClick={() => setIsEditingCV(true)}
                         variant="outline"
                         className="border-blue-400/30 text-white hover:bg-white/10"
                       >
                         <Edit2 className="w-4 h-4 mr-2" />
-                        Modifier
+                        Modifier le CV
                       </Button>
                     )}
                   </div>
 
-                  {/* Expérience professionnelle */}
-                  <div className="mb-6">
-                    <div className="flex items-center gap-2 mb-3">
-                      <Briefcase className="w-5 h-5 text-amber-400" />
-                      <h4 className="text-white font-medium">Expérience professionnelle</h4>
-                    </div>
-                    {profile?.position || editData.position ? (
-                      <div className="p-4 bg-blue-500/10 rounded-lg border border-blue-400/20">
-                        <div className="flex items-start justify-between">
-                          <div>
-                            <p className="text-white font-medium">{profile?.position || editData.position}</p>
-                            <p className="text-sm text-blue-300">{profile?.department || editData.department || 'Département'}</p>
+                  {isEditingCV && canEdit ? (
+                    <div className="space-y-6">
+                      {/* Expérience professionnelle */}
+                      <div>
+                        <div className="flex items-center justify-between mb-3">
+                          <div className="flex items-center gap-2">
+                            <Briefcase className="w-5 h-5 text-amber-400" />
+                            <h4 className="text-white font-medium">Expérience professionnelle</h4>
                           </div>
-                          <Badge className="bg-amber-500/20 text-amber-300 border border-amber-500/30">
-                            Actuel
-                          </Badge>
-                        </div>
-                      </div>
-                    ) : (
-                      <p className="text-blue-300/50 text-sm">Aucune expérience renseignée</p>
-                    )}
-                  </div>
-
-                  {/* Compétences */}
-                  {profile?.skills && parseSkills(profile.skills).length > 0 && (
-                    <div className="mb-6">
-                      <div className="flex items-center gap-2 mb-3">
-                        <Award className="w-5 h-5 text-amber-400" />
-                        <h4 className="text-white font-medium">Compétences</h4>
-                      </div>
-                      <div className="flex flex-wrap gap-2">
-                        {parseSkills(profile.skills).map((skill, index) => (
-                          <Badge 
-                            key={index} 
-                            className="bg-gradient-to-r from-amber-500/20 to-amber-400/10 text-amber-300 border border-amber-500/30 px-3 py-1"
+                          <Button
+                            onClick={addExperience}
+                            variant="outline"
+                            size="sm"
+                            className="border-blue-400/30 text-white hover:bg-white/10"
                           >
-                            {skill}
-                          </Badge>
-                        ))}
+                            <Plus className="w-4 h-4 mr-1" />
+                            Ajouter
+                          </Button>
+                        </div>
+                        
+                        {cvData.experience.length === 0 ? (
+                          <p className="text-blue-300/50 text-sm">Aucune expérience ajoutée</p>
+                        ) : (
+                          <div className="space-y-3">
+                            {cvData.experience.map((exp, index) => (
+                              <div key={index} className="p-4 bg-blue-500/10 rounded-lg border border-blue-400/20 space-y-3">
+                                <div className="flex justify-end">
+                                  <Button
+                                    onClick={() => removeExperience(index)}
+                                    variant="ghost"
+                                    size="sm"
+                                    className="text-red-400 hover:text-red-300 hover:bg-red-400/10"
+                                  >
+                                    <Trash2 className="w-4 h-4" />
+                                  </Button>
+                                </div>
+                                <div className="grid grid-cols-2 gap-3">
+                                  <div>
+                                    <label className="text-xs text-blue-300 mb-1 block">Poste</label>
+                                    <Input
+                                      value={exp.title}
+                                      onChange={(e) => updateExperience(index, 'title', e.target.value)}
+                                      className="bg-white/10 border-blue-400/30 text-white text-sm"
+                                      placeholder="Titre du poste"
+                                    />
+                                  </div>
+                                  <div>
+                                    <label className="text-xs text-blue-300 mb-1 block">Entreprise</label>
+                                    <Input
+                                      value={exp.company}
+                                      onChange={(e) => updateExperience(index, 'company', e.target.value)}
+                                      className="bg-white/10 border-blue-400/30 text-white text-sm"
+                                      placeholder="Nom de l'entreprise"
+                                    />
+                                  </div>
+                                </div>
+                                <div className="grid grid-cols-2 gap-3">
+                                  <div>
+                                    <label className="text-xs text-blue-300 mb-1 block">Date de début</label>
+                                    <Input
+                                      value={exp.startDate}
+                                      onChange={(e) => updateExperience(index, 'startDate', e.target.value)}
+                                      className="bg-white/10 border-blue-400/30 text-white text-sm"
+                                      placeholder="Jan 2020"
+                                    />
+                                  </div>
+                                  <div>
+                                    <label className="text-xs text-blue-300 mb-1 block">Date de fin</label>
+                                    <Input
+                                      value={exp.endDate}
+                                      onChange={(e) => updateExperience(index, 'endDate', e.target.value)}
+                                      className="bg-white/10 border-blue-400/30 text-white text-sm"
+                                      placeholder="Présent"
+                                    />
+                                  </div>
+                                </div>
+                                <div>
+                                  <label className="text-xs text-blue-300 mb-1 block">Description</label>
+                                  <Textarea
+                                    value={exp.description}
+                                    onChange={(e) => updateExperience(index, 'description', e.target.value)}
+                                    className="bg-white/10 border-blue-400/30 text-white text-sm"
+                                    placeholder="Décrivez vos responsabilités..."
+                                    rows={2}
+                                  />
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Formation */}
+                      <div>
+                        <div className="flex items-center justify-between mb-3">
+                          <div className="flex items-center gap-2">
+                            <GraduationCap className="w-5 h-5 text-amber-400" />
+                            <h4 className="text-white font-medium">Formation</h4>
+                          </div>
+                          <Button
+                            onClick={addEducation}
+                            variant="outline"
+                            size="sm"
+                            className="border-blue-400/30 text-white hover:bg-white/10"
+                          >
+                            <Plus className="w-4 h-4 mr-1" />
+                            Ajouter
+                          </Button>
+                        </div>
+                        
+                        {cvData.education.length === 0 ? (
+                          <p className="text-blue-300/50 text-sm">Aucune formation ajoutée</p>
+                        ) : (
+                          <div className="space-y-3">
+                            {cvData.education.map((edu, index) => (
+                              <div key={index} className="p-4 bg-blue-500/10 rounded-lg border border-blue-400/20 space-y-3">
+                                <div className="flex justify-end">
+                                  <Button
+                                    onClick={() => removeEducation(index)}
+                                    variant="ghost"
+                                    size="sm"
+                                    className="text-red-400 hover:text-red-300 hover:bg-red-400/10"
+                                  >
+                                    <Trash2 className="w-4 h-4" />
+                                  </Button>
+                                </div>
+                                <div className="grid grid-cols-2 gap-3">
+                                  <div>
+                                    <label className="text-xs text-blue-300 mb-1 block">Diplôme</label>
+                                    <Input
+                                      value={edu.degree}
+                                      onChange={(e) => updateEducation(index, 'degree', e.target.value)}
+                                      className="bg-white/10 border-blue-400/30 text-white text-sm"
+                                      placeholder="Licence, Master, etc."
+                                    />
+                                  </div>
+                                  <div>
+                                    <label className="text-xs text-blue-300 mb-1 block">École</label>
+                                    <Input
+                                      value={edu.school}
+                                      onChange={(e) => updateEducation(index, 'school', e.target.value)}
+                                      className="bg-white/10 border-blue-400/30 text-white text-sm"
+                                      placeholder="Nom de l'établissement"
+                                    />
+                                  </div>
+                                </div>
+                                <div className="grid grid-cols-2 gap-3">
+                                  <div>
+                                    <label className="text-xs text-blue-300 mb-1 block">Année</label>
+                                    <Input
+                                      value={edu.year}
+                                      onChange={(e) => updateEducation(index, 'year', e.target.value)}
+                                      className="bg-white/10 border-blue-400/30 text-white text-sm"
+                                      placeholder="2020"
+                                    />
+                                  </div>
+                                  <div>
+                                    <label className="text-xs text-blue-300 mb-1 block">Domaine</label>
+                                    <Input
+                                      value={edu.field}
+                                      onChange={(e) => updateEducation(index, 'field', e.target.value)}
+                                      className="bg-white/10 border-blue-400/30 text-white text-sm"
+                                      placeholder="Informatique, Marketing, etc."
+                                    />
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Certifications */}
+                      <div>
+                        <div className="flex items-center justify-between mb-3">
+                          <div className="flex items-center gap-2">
+                            <ShieldCheck className="w-5 h-5 text-amber-400" />
+                            <h4 className="text-white font-medium">Certifications</h4>
+                          </div>
+                          <Button
+                            onClick={addCertification}
+                            variant="outline"
+                            size="sm"
+                            className="border-blue-400/30 text-white hover:bg-white/10"
+                          >
+                            <Plus className="w-4 h-4 mr-1" />
+                            Ajouter
+                          </Button>
+                        </div>
+                        
+                        {cvData.certifications.length === 0 ? (
+                          <p className="text-blue-300/50 text-sm">Aucune certification ajoutée</p>
+                        ) : (
+                          <div className="space-y-3">
+                            {cvData.certifications.map((cert, index) => (
+                              <div key={index} className="p-4 bg-blue-500/10 rounded-lg border border-blue-400/20 space-y-3">
+                                <div className="flex justify-end">
+                                  <Button
+                                    onClick={() => removeCertification(index)}
+                                    variant="ghost"
+                                    size="sm"
+                                    className="text-red-400 hover:text-red-300 hover:bg-red-400/10"
+                                  >
+                                    <Trash2 className="w-4 h-4" />
+                                  </Button>
+                                </div>
+                                <div className="grid grid-cols-2 gap-3">
+                                  <div>
+                                    <label className="text-xs text-blue-300 mb-1 block">Nom</label>
+                                    <Input
+                                      value={cert.name}
+                                      onChange={(e) => updateCertification(index, 'name', e.target.value)}
+                                      className="bg-white/10 border-blue-400/30 text-white text-sm"
+                                      placeholder="Nom de la certification"
+                                    />
+                                  </div>
+                                  <div>
+                                    <label className="text-xs text-blue-300 mb-1 block">Organisme</label>
+                                    <Input
+                                      value={cert.issuer}
+                                      onChange={(e) => updateCertification(index, 'issuer', e.target.value)}
+                                      className="bg-white/10 border-blue-400/30 text-white text-sm"
+                                      placeholder="Organisme émetteur"
+                                    />
+                                  </div>
+                                </div>
+                                <div className="grid grid-cols-2 gap-3">
+                                  <div>
+                                    <label className="text-xs text-blue-300 mb-1 block">Année</label>
+                                    <Input
+                                      value={cert.year}
+                                      onChange={(e) => updateCertification(index, 'year', e.target.value)}
+                                      className="bg-white/10 border-blue-400/30 text-white text-sm"
+                                      placeholder="2023"
+                                    />
+                                  </div>
+                                  <div>
+                                    <label className="text-xs text-blue-300 mb-1 block">URL (optionnel)</label>
+                                    <Input
+                                      value={cert.url}
+                                      onChange={(e) => updateCertification(index, 'url', e.target.value)}
+                                      className="bg-white/10 border-blue-400/30 text-white text-sm"
+                                      placeholder="https://..."
+                                    />
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Boutons d'action */}
+                      <div className="flex gap-3 pt-4 border-t border-blue-400/20">
+                        <Button 
+                          onClick={saveCV} 
+                          disabled={saving}
+                          className="bg-amber-500 hover:bg-amber-600 text-black font-bold"
+                        >
+                          {saving ? (
+                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          ) : (
+                            <Save className="w-4 h-4 mr-2" />
+                          )}
+                          {saving ? 'Sauvegarde...' : 'Sauvegarder le CV'}
+                        </Button>
+                        <Button 
+                          onClick={() => setIsEditingCV(false)} 
+                          variant="outline"
+                          className="border-blue-400/30 text-white hover:bg-white/10"
+                        >
+                          <X className="w-4 h-4 mr-2" />
+                          Annuler
+                        </Button>
                       </div>
                     </div>
-                  )}
+                  ) : (
+                    <div className="space-y-6">
+                      {/* Expérience professionnelle - Affichage */}
+                      <div>
+                        <div className="flex items-center gap-2 mb-3">
+                          <Briefcase className="w-5 h-5 text-amber-400" />
+                          <h4 className="text-white font-medium">Expérience professionnelle</h4>
+                        </div>
+                        
+                        {profile?.position && (
+                          <div className="p-4 bg-blue-500/10 rounded-lg border border-blue-400/20 mb-3">
+                            <div className="flex items-start justify-between">
+                              <div>
+                                <p className="text-white font-medium">{profile.position}</p>
+                                <p className="text-sm text-blue-300">{profile.department || 'Département'}</p>
+                              </div>
+                              <Badge className="bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                                Actuel
+                              </Badge>
+                            </div>
+                          </div>
+                        )}
+                        
+                        {cvData.experience.length > 0 && (
+                          <div className="space-y-3">
+                            {cvData.experience.map((exp, index) => (
+                              <div key={index} className="p-4 bg-blue-500/10 rounded-lg border border-blue-400/20">
+                                <div className="flex items-start justify-between">
+                                  <div>
+                                    <p className="text-white font-medium">{exp.title}</p>
+                                    <p className="text-sm text-blue-300">{exp.company}</p>
+                                    <p className="text-xs text-blue-300/70 mt-1">{exp.startDate} - {exp.endDate}</p>
+                                  </div>
+                                </div>
+                                {exp.description && (
+                                  <p className="text-sm text-blue-200 mt-2">{exp.description}</p>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                        
+                        {!profile?.position && cvData.experience.length === 0 && (
+                          <p className="text-blue-300/50 text-sm">Aucune expérience renseignée</p>
+                        )}
+                      </div>
 
-                  {/* Bio / Résumé */}
-                  {(profile?.bio || editData.bio) && (
-                    <div>
-                      <div className="flex items-center gap-2 mb-3">
-                        <FileText className="w-5 h-5 text-amber-400" />
-                        <h4 className="text-white font-medium">Résumé</h4>
+                      {/* Formation - Affichage */}
+                      <div>
+                        <div className="flex items-center gap-2 mb-3">
+                          <GraduationCap className="w-5 h-5 text-amber-400" />
+                          <h4 className="text-white font-medium">Formation</h4>
+                        </div>
+                        
+                        {cvData.education.length > 0 ? (
+                          <div className="space-y-3">
+                            {cvData.education.map((edu, index) => (
+                              <div key={index} className="p-4 bg-blue-500/10 rounded-lg border border-blue-400/20">
+                                <p className="text-white font-medium">{edu.degree}</p>
+                                <p className="text-sm text-blue-300">{edu.school}</p>
+                                <p className="text-xs text-blue-300/70 mt-1">{edu.field} • {edu.year}</p>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="text-blue-300/50 text-sm">Aucune formation renseignée</p>
+                        )}
                       </div>
-                      <div className="p-4 bg-blue-500/10 rounded-lg border border-blue-400/20">
-                        <p className="text-blue-100">{profile?.bio || editData.bio}</p>
+
+                      {/* Certifications - Affichage */}
+                      <div>
+                        <div className="flex items-center gap-2 mb-3">
+                          <ShieldCheck className="w-5 h-5 text-amber-400" />
+                          <h4 className="text-white font-medium">Certifications</h4>
+                        </div>
+                        
+                        {cvData.certifications.length > 0 ? (
+                          <div className="space-y-3">
+                            {cvData.certifications.map((cert, index) => (
+                              <div key={index} className="p-4 bg-blue-500/10 rounded-lg border border-blue-400/20">
+                                <div className="flex items-start justify-between">
+                                  <div>
+                                    <p className="text-white font-medium">{cert.name}</p>
+                                    <p className="text-sm text-blue-300">{cert.issuer} • {cert.year}</p>
+                                  </div>
+                                  {cert.url && (
+                                    <a 
+                                      href={cert.url} 
+                                      target="_blank" 
+                                      rel="noopener noreferrer"
+                                      className="text-amber-400 hover:text-amber-300 text-sm"
+                                    >
+                                      Voir
+                                    </a>
+                                  )}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="text-blue-300/50 text-sm">Aucune certification renseignée</p>
+                        )}
                       </div>
+
+                      {/* Compétences */}
+                      {profile?.skills && parseSkills(profile.skills).length > 0 && (
+                        <div>
+                          <div className="flex items-center gap-2 mb-3">
+                            <Award className="w-5 h-5 text-amber-400" />
+                            <h4 className="text-white font-medium">Compétences</h4>
+                          </div>
+                          <div className="flex flex-wrap gap-2">
+                            {parseSkills(profile.skills).map((skill, index) => (
+                              <Badge 
+                                key={index} 
+                                className="bg-gradient-to-r from-amber-500/20 to-amber-400/10 text-amber-300 border border-amber-500/30 px-3 py-1"
+                              >
+                                {skill}
+                              </Badge>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Bio / Résumé */}
+                      {profile?.bio && (
+                        <div>
+                          <div className="flex items-center gap-2 mb-3">
+                            <FileText className="w-5 h-5 text-amber-400" />
+                            <h4 className="text-white font-medium">Résumé</h4>
+                          </div>
+                          <div className="p-4 bg-blue-500/10 rounded-lg border border-blue-400/20">
+                            <p className="text-blue-100">{profile.bio}</p>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>

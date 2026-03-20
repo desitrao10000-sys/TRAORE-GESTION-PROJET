@@ -20,7 +20,7 @@ import { ProjectDetail } from '@/components/app/ProjectDetail'
 import { ImportPDF } from '@/components/app/ImportPDF'
 import { GanttView } from '@/components/app/GanttView'
 import { LoginPage } from '@/components/app/LoginPage'
-import { Folder, Project, Task, Risk } from '@/types'
+import { Folder, Project, Task, Risk, PageType } from '@/types'
 import { Settings, Bell, Users } from 'lucide-react'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -272,7 +272,17 @@ export default function Home() {
   }, [fetchData])
 
   // Afficher le loader pendant l'hydratation ou la vérification de l'auth
-  if (!hydrated || checkingAuth) {
+  // Timeout après 3 secondes si l'hydratation ne se fait pas
+  const [forceShow, setForceShow] = useState(false)
+  
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setForceShow(true)
+    }, 3000)
+    return () => clearTimeout(timer)
+  }, [])
+
+  if ((!hydrated || checkingAuth) && !forceShow) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-[#1a2744] via-[#1e3a5f] to-[#0f1225] flex items-center justify-center">
         <div className="text-center">

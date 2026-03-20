@@ -43,14 +43,8 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    // Utiliser uniquement les champs de base
-    const user = session.User as {
-      id: string
-      email: string
-      name: string | null
-      role: string
-      avatar: string | null
-    }
+    // Retourner tous les champs du profil
+    const user = session.User
 
     return NextResponse.json({
       success: true,
@@ -59,7 +53,17 @@ export async function GET(request: NextRequest) {
         email: user.email,
         name: user.name,
         role: user.role as 'gestionnaire' | 'membre',
-        avatar: user.avatar
+        avatar: user.avatar,
+        phone: user.phone,
+        position: user.position,
+        department: user.department,
+        bio: user.bio,
+        skills: user.skills,
+        experience: user.experience,
+        education: user.education,
+        certifications: user.certifications,
+        createdAt: user.createdAt,
+        lastLoginAt: user.lastLoginAt
       }
     })
   } catch (error) {

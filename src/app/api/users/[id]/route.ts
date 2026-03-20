@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 
-// GET - Récupérer le profil d'un utilisateur par ID
+// GET - Récupérer le profil d'un utilisateur par ID (inclut CV: experience, education, certifications)
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -45,6 +45,9 @@ export async function GET(
         department: true,
         bio: true,
         skills: true,
+        experience: true,
+        education: true,
+        certifications: true,
         isActive: true,
         createdAt: true,
         lastLoginAt: true,

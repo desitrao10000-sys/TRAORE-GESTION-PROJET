@@ -85,6 +85,9 @@ export async function PUT(request: NextRequest) {
         department: data.department,
         bio: data.bio,
         skills: data.skills ? JSON.stringify(data.skills) : null,
+        experience: data.experience ? JSON.stringify(data.experience) : null,
+        education: data.education ? JSON.stringify(data.education) : null,
+        certifications: data.certifications ? JSON.stringify(data.certifications) : null,
         updatedAt: new Date()
       }
     })
@@ -102,6 +105,9 @@ export async function PUT(request: NextRequest) {
         department: user.department,
         bio: user.bio,
         skills: user.skills ? JSON.parse(user.skills) : [],
+        experience: user.experience ? JSON.parse(user.experience) : [],
+        education: user.education ? JSON.parse(user.education) : [],
+        certifications: user.certifications ? JSON.parse(user.certifications) : [],
         createdAt: user.createdAt,
         lastLoginAt: user.lastLoginAt
       }
