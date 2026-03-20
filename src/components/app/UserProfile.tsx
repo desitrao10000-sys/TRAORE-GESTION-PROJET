@@ -15,7 +15,8 @@ import {
   Edit2,
   Save,
   X,
-  Plus
+  Plus,
+  ArrowLeft
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -47,12 +48,14 @@ interface UserTask {
   priority: string
   dueDate: string | null
   projectName: string
+  assigneeId: string | null
+  project?: { name: string }
 }
 
 type ProfileTab = 'info' | 'tasks' | 'activity' | 'cv'
 
 export function UserProfile() {
-  const { user } = useAppStore()
+  const { user, viewingUserId, setViewingUserId, setCurrentPage } = useAppStore()
   const [activeTab, setActiveTab] = useState<ProfileTab>('info')
   const [profile, setProfile] = useState<UserProfile | null>(null)
   const [tasks, setTasks] = useState<UserTask[]>([])
@@ -67,22 +70,45 @@ export function UserProfile() {
     skills: ''
   })
 
+  // Déterminer si on regarde son propre profil ou celui d'un autre
+  const isViewingOtherUser = !!viewingUserId
+  const targetUserId = viewingUserId || user?.id
+
   // Charger les données du profil
   useEffect(() => {
     const fetchProfile = async () => {
+      setLoading(true)
       try {
-        const res = await fetch('/api/auth/me')
-        const data = await res.json()
-        if (data.success) {
-          setProfile(data.user)
-          setEditData({
-            name: data.user.name || '',
-            phone: data.user.phone || '',
-            position: data.user.position || '',
-            department: data.user.department || '',
-            bio: data.user.bio || '',
-            skills: data.user.skills?.join(', ') || ''
-          })
+        if (viewingUserId) {
+          // Récupérer le profil d'un autre utilisateur
+          const res = await fetch(`/api/users/${viewingUserId}`)
+          const data = await res.json()
+          if (data.success) {
+            setProfile(data.user)
+            setEditData({
+              name: data.user.name || '',
+              phone: data.user.phone || '',
+              position: data.user.position || '',
+              department: data.user.department || '',
+              bio: data.user.bio || '',
+              skills: data.user.skills?.join(', ') || ''
+            })
+          }
+        } else {
+          // Récupérer son propre profil
+          const res = await fetch('/api/auth/me')
+          const data = await res.json()
+          if (data.success) {
+            setProfile(data.user)
+            setEditData({
+              name: data.user.name || '',
+              phone: data.user.phone || '',
+              position: data.user.position || '',
+              department: data.user.department || '',
+              bio: data.user.bio || '',
+              skills: data.user.skills?.join(', ') || ''
+            })
+          }
         }
       } catch (error) {
         console.error('Error fetching profile:', error)
@@ -108,9 +134,9 @@ export function UserProfile() {
 
     fetchProfile()
     fetchTasks()
-  }, [])
+  }, [viewingUserId])
 
-  // Sauvegarder le profil
+  // Sauvegarder le profil (seulement pour son propre profil)
   const saveProfile = async () => {
     try {
       const res = await fetch('/api/user/profile', {
@@ -135,22 +161,28 @@ export function UserProfile() {
     }
   }
 
-  // Mes tâches assignées
-  const myTasks = tasks.filter(t => user?.id && t.assigneeId === user.id)
+  // Retour à la liste des membres
+  const handleBack = () => {
+    setViewingUserId(null)
+    setCurrentPage('settings')
+  }
+
+  // Tâches assignées à l'utilisateur affiché
+  const userTasks = tasks.filter(t => targetUserId && t.assigneeId === targetUserId)
   
   // Stats des tâches
   const taskStats = {
-    total: myTasks.length,
-    completed: myTasks.filter(t => t.status === 'Validé').length,
-    inProgress: myTasks.filter(t => t.status === 'En cours').length,
-    todo: myTasks.filter(t => t.status === 'À faire').length,
-    late: myTasks.filter(t => t.status === 'En retard').length
+    total: userTasks.length,
+    completed: userTasks.filter(t => t.status === 'Validé').length,
+    inProgress: userTasks.filter(t => t.status === 'En cours').length,
+    todo: userTasks.filter(t => t.status === 'À faire').length,
+    late: userTasks.filter(t => t.status === 'En retard').length
   }
 
   // Onglets
   const tabs: { key: ProfileTab; label: string; icon: React.ReactNode }[] = [
     { key: 'info', label: 'Informations', icon: <User className="w-4 h-4" /> },
-    { key: 'tasks', label: 'Mes tâches', icon: <CheckCircle2 className="w-4 h-4" /> },
+    { key: 'tasks', label: 'Tâches', icon: <CheckCircle2 className="w-4 h-4" /> },
     { key: 'activity', label: 'Activité', icon: <Clock className="w-4 h-4" /> },
     { key: 'cv', label: 'CV', icon: <FileText className="w-4 h-4" /> }
   ]
@@ -167,12 +199,26 @@ export function UserProfile() {
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-white drop-shadow-lg flex items-center gap-2">
-            <User className="w-7 h-7 text-amber-400" />
-            Mon Profil
-          </h1>
-          <p className="text-blue-200 mt-1">Gérez vos informations personnelles</p>
+        <div className="flex items-center gap-4">
+          {isViewingOtherUser && (
+            <Button
+              onClick={handleBack}
+              variant="outline"
+              className="border-blue-400/30 text-white hover:bg-white/10"
+            >
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              Retour
+            </Button>
+          )}
+          <div>
+            <h1 className="text-2xl font-bold text-white drop-shadow-lg flex items-center gap-2">
+              <User className="w-7 h-7 text-amber-400" />
+              {isViewingOtherUser ? `Profil de ${profile?.name || 'l\'utilisateur'}` : 'Mon Profil'}
+            </h1>
+            <p className="text-blue-200 mt-1">
+              {isViewingOtherUser ? 'Informations du membre' : 'Gérez vos informations personnelles'}
+            </p>
+          </div>
         </div>
       </div>
 
@@ -181,7 +227,11 @@ export function UserProfile() {
         <Card className="bg-gradient-to-br from-[#1e3a5f] to-[#1a2744] border-blue-400/30">
           <CardContent className="p-6 text-center">
             {/* Avatar */}
-            <div className="w-24 h-24 rounded-full bg-gradient-to-br from-amber-400 to-amber-600 flex items-center justify-center mx-auto mb-4 shadow-lg shadow-amber-500/30">
+            <div className={`w-24 h-24 rounded-full flex items-center justify-center mx-auto mb-4 shadow-lg ${
+              profile?.role === 'gestionnaire'
+                ? 'bg-gradient-to-br from-amber-400 to-amber-600 shadow-amber-500/30'
+                : 'bg-gradient-to-br from-blue-400 to-blue-600 shadow-blue-500/30'
+            }`}>
               {profile?.avatar ? (
                 <img src={profile.avatar} alt="" className="w-24 h-24 rounded-full object-cover" />
               ) : (
@@ -268,17 +318,19 @@ export function UserProfile() {
                 <div>
                   <div className="flex items-center justify-between mb-4">
                     <h3 className="text-lg font-semibold text-white">Informations personnelles</h3>
-                    <Button
-                      onClick={() => setIsEditing(!isEditing)}
-                      variant="outline"
-                      className="border-blue-400/30 text-white hover:bg-white/10"
-                    >
-                      {isEditing ? <X className="w-4 h-4" /> : <Edit2 className="w-4 h-4" />}
-                      {isEditing ? 'Annuler' : 'Modifier'}
-                    </Button>
+                    {!isViewingOtherUser && (
+                      <Button
+                        onClick={() => setIsEditing(!isEditing)}
+                        variant="outline"
+                        className="border-blue-400/30 text-white hover:bg-white/10"
+                      >
+                        {isEditing ? <X className="w-4 h-4" /> : <Edit2 className="w-4 h-4" />}
+                        {isEditing ? 'Annuler' : 'Modifier'}
+                      </Button>
+                    )}
                   </div>
 
-                  {isEditing ? (
+                  {isEditing && !isViewingOtherUser ? (
                     <div className="space-y-4">
                       <div className="grid grid-cols-2 gap-4">
                         <div>
@@ -386,19 +438,21 @@ export function UserProfile() {
                 </div>
               )}
 
-              {/* Onglet Mes tâches */}
+              {/* Onglet Tâches */}
               {activeTab === 'tasks' && (
                 <div>
-                  <h3 className="text-lg font-semibold text-white mb-4">Mes tâches assignées</h3>
+                  <h3 className="text-lg font-semibold text-white mb-4">
+                    {isViewingOtherUser ? 'Tâches assignées' : 'Mes tâches assignées'}
+                  </h3>
                   
-                  {myTasks.length === 0 ? (
+                  {userTasks.length === 0 ? (
                     <div className="text-center py-8">
                       <CheckCircle2 className="w-12 h-12 text-green-400/50 mx-auto mb-3" />
                       <p className="text-blue-200">Aucune tâche assignée</p>
                     </div>
                   ) : (
                     <div className="space-y-3 max-h-96 overflow-y-auto">
-                      {myTasks.map(task => (
+                      {userTasks.map(task => (
                         <div 
                           key={task.id}
                           className="p-3 bg-blue-500/10 rounded-lg border border-blue-400/20"
@@ -434,7 +488,9 @@ export function UserProfile() {
               {/* Onglet Activité */}
               {activeTab === 'activity' && (
                 <div>
-                  <h3 className="text-lg font-semibold text-white mb-4">Mon activité récente</h3>
+                  <h3 className="text-lg font-semibold text-white mb-4">
+                    {isViewingOtherUser ? 'Activité récente' : 'Mon activité récente'}
+                  </h3>
                   
                   <div className="space-y-4">
                     <div className="flex items-start gap-3">
@@ -442,7 +498,7 @@ export function UserProfile() {
                         <CheckCircle2 className="w-4 h-4 text-green-400" />
                       </div>
                       <div>
-                        <p className="text-white">Vous avez terminé {taskStats.completed} tâches</p>
+                        <p className="text-white">{taskStats.completed} tâches terminées</p>
                         <p className="text-xs text-blue-300/70">Ce mois-ci</p>
                       </div>
                     </div>
@@ -474,11 +530,15 @@ export function UserProfile() {
               {activeTab === 'cv' && (
                 <div>
                   <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-lg font-semibold text-white">Mon CV</h3>
-                    <Button variant="outline" className="border-blue-400/30 text-white hover:bg-white/10">
-                      <Plus className="w-4 h-4 mr-2" />
-                      Ajouter une section
-                    </Button>
+                    <h3 className="text-lg font-semibold text-white">
+                      {isViewingOtherUser ? 'CV' : 'Mon CV'}
+                    </h3>
+                    {!isViewingOtherUser && (
+                      <Button variant="outline" className="border-blue-400/30 text-white hover:bg-white/10">
+                        <Plus className="w-4 h-4 mr-2" />
+                        Ajouter une section
+                      </Button>
+                    )}
                   </div>
 
                   {/* Expérience professionnelle */}

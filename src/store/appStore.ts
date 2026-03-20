@@ -51,6 +51,10 @@ interface AppState {
   // Last activity timestamp
   lastActivity: number
   updateLastActivity: () => void
+
+  // Viewing another user's profile (for admin)
+  viewingUserId: string | null
+  setViewingUserId: (userId: string | null) => void
 }
 
 export const useAppStore = create<AppState>()(
@@ -88,6 +92,10 @@ export const useAppStore = create<AppState>()(
       // Last activity
       lastActivity: Date.now(),
       updateLastActivity: () => set({ lastActivity: Date.now() }),
+
+      // Viewing another user's profile
+      viewingUserId: null,
+      setViewingUserId: (userId) => set({ viewingUserId: userId, lastActivity: Date.now() }),
     }),
     {
       name: 'traore-gestion-projet-storage', // Nom unique pour localStorage
@@ -102,6 +110,7 @@ export const useAppStore = create<AppState>()(
         sidebarOpen: state.sidebarOpen,
         theme: state.theme,
         lastActivity: state.lastActivity,
+        viewingUserId: state.viewingUserId,
       }),
     }
   )
