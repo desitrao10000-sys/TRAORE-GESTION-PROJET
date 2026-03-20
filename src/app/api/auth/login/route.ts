@@ -60,11 +60,13 @@ export async function POST(request: NextRequest) {
 
     // Créer une session
     const token = generateToken()
+    const sessionId = randomBytes(16).toString('hex')
     const expiresAt = new Date()
     expiresAt.setDate(expiresAt.getDate() + 7) // 7 jours
 
     await db.session.create({
       data: {
+        id: sessionId,
         userId: user.id,
         token,
         expiresAt
