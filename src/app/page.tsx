@@ -54,6 +54,13 @@ export default function Home() {
   const [loading, setLoading] = useState(true)
   const [checkingAuth, setCheckingAuth] = useState(true)
 
+  // Wrapper pour la navigation qui réinitialise viewingUserId
+  const handleNavigate = useCallback((page: PageType) => {
+    // Toujours réinitialiser viewingUserId lors de la navigation normale
+    setViewingUserId(null)
+    setCurrentPage(page)
+  }, [setCurrentPage, setViewingUserId])
+
   // Vérifier l'authentification au chargement
   useEffect(() => {
     const checkAuth = async () => {
@@ -298,7 +305,7 @@ export default function Home() {
       {/* Header */}
       <Header 
         currentPage={currentPage} 
-        onNavigate={setCurrentPage}
+        onNavigate={handleNavigate}
         user={user}
         onLogout={handleLogout}
       />
@@ -311,7 +318,7 @@ export default function Home() {
           dashboardTab={dashboardTab}
           folders={folders}
           selectedFolderId={selectedFolderId}
-          onNavigate={setCurrentPage}
+          onNavigate={handleNavigate}
           onDashboardTabChange={setDashboardTab}
           onFolderSelect={handleFolderSelect}
           user={user}

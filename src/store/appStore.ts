@@ -68,7 +68,7 @@ export const useAppStore = create<AppState>()(
       
       // Navigation
       currentPage: 'dashboard',
-      setCurrentPage: (page) => set({ currentPage: page, selectedProjectId: null, viewingUserId: null, lastActivity: Date.now() }),
+      setCurrentPage: (page) => set({ currentPage: page, selectedProjectId: null, lastActivity: Date.now() }),
       
       // Dashboard tabs
       dashboardTab: 'overview',
