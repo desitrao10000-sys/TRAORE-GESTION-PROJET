@@ -167,11 +167,30 @@ export function LoginPage({ onLogin }: LoginPageProps) {
               </Button>
             </form>
 
-            {/* Note pour les membres */}
-            <div className="mt-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
-              <p className="text-sm text-blue-700">
-                <strong>Membre?</strong> Contactez votre gestionnaire pour obtenir vos identifiants de connexion.
+            {/* Création de compte membre */}
+            <div className="mt-6 p-4 bg-gradient-to-br from-blue-50 to-amber-50 rounded-lg border border-amber-200">
+              <h4 className="text-sm font-semibold text-gray-800 mb-3 flex items-center gap-2">
+                <span className="w-6 h-6 rounded-full bg-amber-500 text-white flex items-center justify-center text-xs font-bold">2</span>
+                Création de compte membre
+              </h4>
+              <p className="text-xs text-gray-600 mb-3">
+                L'administrateur peut créer des comptes membres depuis son panneau de configuration (Paramètres → Gestion des membres).
               </p>
+              
+              <h4 className="text-sm font-semibold text-gray-800 mb-2 flex items-center gap-2">
+                <span className="w-6 h-6 rounded-full bg-blue-500 text-white flex items-center justify-center text-xs">📋</span>
+                Résumé des rôles
+              </h4>
+              <div className="space-y-2 text-xs">
+                <div className="flex items-start gap-2 p-2 bg-amber-100/50 rounded">
+                  <span className="font-semibold text-amber-700 min-w-[80px]">Gestionnaire</span>
+                  <span className="text-gray-600">TOUT (projets, tâches, paramètres, suppression) • Compte par défaut</span>
+                </div>
+                <div className="flex items-start gap-2 p-2 bg-blue-100/50 rounded">
+                  <span className="font-semibold text-blue-700 min-w-[80px]">Membre</span>
+                  <span className="text-gray-600">Tâches assignées, profil seulement • Via le gestionnaire</span>
+                </div>
+              </div>
             </div>
           </CardContent>
         </Card>
