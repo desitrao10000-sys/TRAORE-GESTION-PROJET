@@ -124,7 +124,7 @@ export function UserProfile() {
         if (data.success) {
           setTasks(data.data.map((t: UserTask) => ({
             ...t,
-            projectName: t.project?.name || 'Sans projet'
+            projectName: t.Project?.name || 'Sans projet'
           })))
         }
       } catch (error) {
