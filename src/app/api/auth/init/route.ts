@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { db } from '@/lib/db'
+import { randomBytes } from 'crypto'
 
 // Hash simple pour le mot de passe
 function simpleHash(password: string): string {
@@ -10,6 +11,11 @@ function simpleHash(password: string): string {
     hash = hash & hash
   }
   return Math.abs(hash).toString(16).padStart(16, '0')
+}
+
+// Générer un ID unique
+function generateId(): string {
+  return randomBytes(16).toString('hex').slice(0, 25)
 }
 
 export async function GET() {
@@ -34,11 +40,13 @@ export async function GET() {
     // Créer avec uniquement les champs de base
     const gestionnaire = await db.user.create({
       data: {
+        id: generateId(),
         email: 'admin@traoreprojet.com',
         name: 'Gestionnaire Principal',
         password: hashedPassword,
         role: 'gestionnaire',
-        isActive: true
+        isActive: true,
+        updatedAt: new Date()
       }
     })
 
@@ -85,13 +93,15 @@ export async function POST(request: Request) {
 
     const user = await db.user.create({
       data: {
+        id: generateId(),
         email: email.toLowerCase(),
         name,
         password: hashedPassword,
         role: 'membre',
         position,
         department,
-        isActive: true
+        isActive: true,
+        updatedAt: new Date()
       }
     })
 
