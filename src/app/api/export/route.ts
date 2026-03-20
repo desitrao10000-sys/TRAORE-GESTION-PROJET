@@ -28,22 +28,22 @@ export async function POST(request: Request) {
     // Fetch all data
     let projects = await db.project.findMany({
       include: {
-        tasks: true,
-        expenses: true,
-        risks: true,
-        folder: true
+        Task: true,
+        Expense: true,
+        Risk: true,
+        Folder: true
       }
     })
 
     let tasks = await db.task.findMany({
       include: {
-        project: { select: { name: true, status: true } }
+        Project: { select: { name: true, status: true } }
       }
     })
 
     let risks = await db.risk.findMany({
       include: {
-        project: { select: { name: true } }
+        Project: { select: { name: true } }
       }
     })
 
@@ -87,7 +87,7 @@ export async function POST(request: Request) {
         responsibleName: p.responsibleName,
         startDate: p.startDate,
         endDate: p.endDate,
-        tasks: p.tasks
+        tasks: p.Task
       })),
       tasks: tasks.map(t => ({
         id: t.id,
@@ -96,7 +96,7 @@ export async function POST(request: Request) {
         priority: t.priority,
         assigneeName: t.assigneeName,
         dueDate: t.dueDate,
-        project: t.project
+        project: t.Project
       })),
       risks: risks.map(r => ({
         id: r.id,
@@ -105,7 +105,7 @@ export async function POST(request: Request) {
         probability: r.probability,
         status: r.status,
         mitigation: r.mitigation,
-        project: r.project
+        project: r.Project
       })),
       filters: appliedFilters
     }

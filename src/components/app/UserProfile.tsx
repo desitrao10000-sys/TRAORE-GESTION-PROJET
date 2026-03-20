@@ -49,7 +49,7 @@ interface UserTask {
   dueDate: string | null
   projectName: string
   assigneeId: string | null
-  project?: { name: string }
+  Project?: { name: string }
 }
 
 type ProfileTab = 'info' | 'tasks' | 'activity' | 'cv'

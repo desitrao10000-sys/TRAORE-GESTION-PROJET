@@ -14,7 +14,7 @@ export async function POST() {
         status: { notIn: ['Validé', 'Annulé'] }
       },
       include: {
-        project: true
+        Project: true
       }
     })
     
@@ -47,7 +47,7 @@ export async function POST() {
           data: {
             date: task.dueDate || today,
             projectId: task.projectId,
-            projectName: task.project?.name || 'Sans projet',
+            projectName: task.Project?.name || 'Sans projet',
             taskId: task.id,
             taskTitle: task.title,
             taskDescription: task.description,

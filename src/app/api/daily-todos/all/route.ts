@@ -20,7 +20,7 @@ export async function GET() {
           status: { notIn: ['Validé', 'Annulé'] }
         },
         include: {
-          project: true
+          Project: true
         }
       })
 
@@ -40,7 +40,7 @@ export async function GET() {
           data: {
             date: task.dueDate || new Date(),
             projectId: task.projectId,
-            projectName: task.project?.name || 'Sans projet',
+            projectName: task.Project?.name || 'Sans projet',
             taskId: task.id,
             taskTitle: task.title,
             taskDescription: task.description,

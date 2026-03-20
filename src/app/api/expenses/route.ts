@@ -15,7 +15,7 @@ export async function GET(request: Request) {
     const expenses = await db.expense.findMany({
       where,
       include: {
-        project: {
+        Project: {
           select: {
             id: true,
             name: true,

@@ -12,17 +12,17 @@ export async function GET(
     const task = await db.task.findUnique({
       where: { id },
       include: {
-        project: true,
-        subTasks: true,
-        files: true,
-        comments: {
+        Project: true,
+        SubTask: true,
+        TaskFile: true,
+        Comment: {
           orderBy: { createdAt: 'desc' }
         },
-        history: {
+        ActivityHistory: {
           orderBy: { createdAt: 'desc' },
           take: 20
         },
-        timerSessions: {
+        TimerSession: {
           orderBy: { createdAt: 'desc' },
           take: 10
         }
@@ -81,8 +81,8 @@ export async function PUT(
       where: { id },
       data: updateData,
       include: {
-        project: true,
-        subTasks: true
+        Project: true,
+        SubTask: true
       }
     })
 

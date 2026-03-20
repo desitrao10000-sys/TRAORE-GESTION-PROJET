@@ -19,13 +19,13 @@ export async function GET(request: Request) {
     const tasks = await db.task.findMany({
       where,
       include: {
-        project: {
+        Project: {
           select: { id: true, name: true, status: true }
         },
-        subTasks: true,
-        files: true,
+        SubTask: true,
+        TaskFile: true,
         _count: {
-          select: { subTasks: true, comments: true }
+          select: { SubTask: true, Comment: true }
         }
       },
       orderBy: [
@@ -95,8 +95,8 @@ export async function POST(request: Request) {
         budget: budget ? parseFloat(budget) : 0
       },
       include: {
-        project: true,
-        subTasks: true
+        Project: true,
+        SubTask: true
       }
     })
 
@@ -178,10 +178,10 @@ export async function PUT(request: Request) {
       where: { id },
       data: updateData,
       include: {
-        project: {
+        Project: {
           select: { id: true, name: true, status: true }
         },
-        subTasks: true
+        SubTask: true
       }
     })
 
