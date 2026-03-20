@@ -39,7 +39,9 @@ export default function Home() {
     selectedFolderId,
     setSelectedFolderId,
     selectedProjectId,
-    setSelectedProjectId
+    setSelectedProjectId,
+    viewingUserId,
+    setViewingUserId
   } = useAppStore()
 
   // State for data
@@ -399,11 +401,11 @@ export default function Home() {
             )
           )}
           
-          {/* Profile */}
-          {currentPage === 'profile' && <UserProfile />}
+          {/* Profile - Afficher le profil de l'utilisateur connecté ou d'un membre sélectionné */}
+          {(currentPage === 'profile' || viewingUserId) && <UserProfile />}
           
-          {/* Settings */}
-          {currentPage === 'settings' && (
+          {/* Settings - Ne pas afficher si on regarde le profil d'un autre utilisateur */}
+          {currentPage === 'settings' && !viewingUserId && (
             <div className="space-y-6">
               <div>
                 <h1 className="text-2xl font-bold text-white drop-shadow-lg">Paramètres</h1>

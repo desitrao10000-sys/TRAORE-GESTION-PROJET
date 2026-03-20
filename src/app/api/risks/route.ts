@@ -11,7 +11,7 @@ export async function GET(request: Request) {
     const risks = await db.risk.findMany({
       where,
       include: {
-        project: true
+        Project: true
       },
       orderBy: { createdAt: 'desc' }
     })

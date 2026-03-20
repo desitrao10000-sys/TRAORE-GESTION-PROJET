@@ -5,6 +5,7 @@ import { UserPlus, Users, Trash2, Mail, Shield, User, Loader2, AlertCircle, Chec
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { useAppStore } from '@/store/appStore'
 
 interface Member {
   id: string
@@ -17,6 +18,7 @@ interface Member {
 }
 
 export function MembersManagement() {
+  const { setCurrentPage, setViewingUserId } = useAppStore()
   const [members, setMembers] = useState<Member[]>([])
   const [loading, setLoading] = useState(true)
   const [creating, setCreating] = useState(false)
@@ -32,9 +34,6 @@ export function MembersManagement() {
   // Delete confirmation state
   const [memberToDelete, setMemberToDelete] = useState<Member | null>(null)
   const [deleting, setDeleting] = useState(false)
-  
-  // Selected member for details
-  const [selectedMember, setSelectedMember] = useState<Member | null>(null)
 
   // Charger les membres
   const loadMembers = async () => {
@@ -130,7 +129,6 @@ export function MembersManagement() {
       if (data.success) {
         setSuccess(`Compte de ${memberToDelete.name} supprimé`)
         setMemberToDelete(null)
-        setSelectedMember(null)
         loadMembers()
       } else {
         setError(data.error || 'Erreur lors de la suppression')
@@ -140,6 +138,12 @@ export function MembersManagement() {
     } finally {
       setDeleting(false)
     }
+  }
+
+  // Voir le profil d'un membre
+  const handleViewMember = (member: Member) => {
+    setViewingUserId(member.id)
+    setCurrentPage('profile')
   }
 
   if (loading) {
@@ -297,114 +301,12 @@ export function MembersManagement() {
             </div>
           )}
 
-          {/* Modal détails du membre */}
-          {selectedMember && !memberToDelete && (
-            <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={() => setSelectedMember(null)}>
-              <div className="bg-[#1e3a5f] rounded-xl p-6 max-w-md w-full mx-4 border border-blue-400/30" onClick={e => e.stopPropagation()}>
-                <div className="flex items-center gap-4 mb-6">
-                  <div className={`w-16 h-16 rounded-full flex items-center justify-center ${
-                    selectedMember.role === 'gestionnaire' 
-                      ? 'bg-amber-500' 
-                      : 'bg-blue-500'
-                  }`}>
-                    {selectedMember.role === 'gestionnaire' ? (
-                      <Shield className="w-8 h-8 text-white" />
-                    ) : (
-                      <User className="w-8 h-8 text-white" />
-                    )}
-                  </div>
-                  <div>
-                    <h3 className="text-white font-bold text-xl">{selectedMember.name || 'Sans nom'}</h3>
-                    <span className={`inline-block px-3 py-1 rounded-full text-sm font-medium ${
-                      selectedMember.role === 'gestionnaire' 
-                        ? 'bg-amber-500/20 text-amber-300' 
-                        : 'bg-blue-500/20 text-blue-300'
-                    }`}>
-                      {selectedMember.role === 'gestionnaire' ? 'Gestionnaire' : 'Membre'}
-                    </span>
-                  </div>
-                </div>
-                
-                <div className="space-y-4">
-                  <div className="bg-white/5 rounded-lg p-3">
-                    <label className="text-xs text-blue-300 uppercase tracking-wide">Email</label>
-                    <p className="text-white flex items-center gap-2 mt-1">
-                      <Mail className="w-4 h-4 text-amber-400" />
-                      {selectedMember.email}
-                    </p>
-                  </div>
-                  
-                  <div className="bg-white/5 rounded-lg p-3">
-                    <label className="text-xs text-blue-300 uppercase tracking-wide">Compte créé le</label>
-                    <p className="text-white mt-1">
-                      {new Date(selectedMember.createdAt).toLocaleDateString('fr-FR', {
-                        day: 'numeric',
-                        month: 'long',
-                        year: 'numeric'
-                      })}
-                    </p>
-                  </div>
-                  
-                  <div className="bg-white/5 rounded-lg p-3">
-                    <label className="text-xs text-blue-300 uppercase tracking-wide">Dernière connexion</label>
-                    <p className="text-white mt-1">
-                      {selectedMember.lastLoginAt 
-                        ? new Date(selectedMember.lastLoginAt).toLocaleDateString('fr-FR', {
-                            day: 'numeric',
-                            month: 'long',
-                            year: 'numeric',
-                            hour: '2-digit',
-                            minute: '2-digit'
-                          })
-                        : 'Jamais connecté'
-                      }
-                    </p>
-                  </div>
-                  
-                  <div className="bg-white/5 rounded-lg p-3">
-                    <label className="text-xs text-blue-300 uppercase tracking-wide">Statut</label>
-                    <p className="mt-1">
-                      <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-sm ${
-                        selectedMember.isActive 
-                          ? 'bg-green-500/20 text-green-300' 
-                          : 'bg-red-500/20 text-red-300'
-                      }`}>
-                        <span className={`w-2 h-2 rounded-full ${selectedMember.isActive ? 'bg-green-400' : 'bg-red-400'}`}></span>
-                        {selectedMember.isActive ? 'Actif' : 'Inactif'}
-                      </span>
-                    </p>
-                  </div>
-                </div>
-                
-                <div className="flex gap-3 mt-6">
-                  <Button
-                    onClick={() => setSelectedMember(null)}
-                    className="flex-1 bg-gray-500 hover:bg-gray-600 text-white"
-                  >
-                    Fermer
-                  </Button>
-                  {selectedMember.role !== 'gestionnaire' && (
-                    <Button
-                      onClick={() => {
-                        setMemberToDelete(selectedMember)
-                      }}
-                      className="flex-1 bg-red-500 hover:bg-red-600 text-white"
-                    >
-                      <Trash2 className="w-4 h-4 mr-2" />
-                      Supprimer
-                    </Button>
-                  )}
-                </div>
-              </div>
-            </div>
-          )}
-
           {/* Liste des utilisateurs */}
           <div className="space-y-2">
             {members.map((member) => (
               <div
                 key={member.id}
-                onClick={() => setSelectedMember(member)}
+                onClick={() => handleViewMember(member)}
                 className="flex items-center justify-between p-3 bg-white/5 rounded-lg border border-blue-400/20 cursor-pointer hover:bg-white/10 transition-colors"
               >
                 <div className="flex items-center gap-3">
