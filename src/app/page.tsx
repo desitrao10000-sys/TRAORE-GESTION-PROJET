@@ -393,10 +393,13 @@ export default function Home() {
             )
           )}
           
-          {/* Profile - Afficher le profil de l'utilisateur connecté ou d'un membre sélectionné */}
-          {(currentPage === 'profile' || viewingUserId) && <UserProfile />}
+          {/* Profile - Afficher le profil de l'utilisateur connecté */}
+          {currentPage === 'profile' && !viewingUserId && <UserProfile />}
           
-          {/* Settings - Ne pas afficher si on regarde le profil d'un autre utilisateur */}
+          {/* Profile d'un autre membre (depuis Paramètres) */}
+          {viewingUserId && <UserProfile />}
+          
+          {/* Settings */}
           {currentPage === 'settings' && !viewingUserId && (
             <div className="space-y-6">
               <div>
