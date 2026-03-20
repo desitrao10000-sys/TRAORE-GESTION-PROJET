@@ -84,33 +84,25 @@ export default function Home() {
     try {
       if (showLoading) setLoading(true)
       
-      // Fetch folders
-      const foldersRes = await fetch('/api/folders')
-      const foldersData = await foldersRes.json()
-      if (foldersData.success) {
-        setFolders(foldersData.data)
-      }
+      // Fetch all data in parallel for better performance
+      const [foldersRes, projectsRes, tasksRes, risksRes] = await Promise.all([
+        fetch('/api/folders'),
+        fetch('/api/projects'),
+        fetch('/api/tasks'),
+        fetch('/api/risks')
+      ])
       
-      // Fetch projects
-      const projectsRes = await fetch('/api/projects')
-      const projectsData = await projectsRes.json()
-      if (projectsData.success) {
-        setProjects(projectsData.data)
-      }
+      const [foldersData, projectsData, tasksData, risksData] = await Promise.all([
+        foldersRes.json(),
+        projectsRes.json(),
+        tasksRes.json(),
+        risksRes.json()
+      ])
       
-      // Fetch tasks
-      const tasksRes = await fetch('/api/tasks')
-      const tasksData = await tasksRes.json()
-      if (tasksData.success) {
-        setTasks(tasksData.data)
-      }
-      
-      // Fetch risks
-      const risksRes = await fetch('/api/risks')
-      const risksData = await risksRes.json()
-      if (risksData.success) {
-        setRisks(risksData.data)
-      }
+      if (foldersData.success) setFolders(foldersData.data)
+      if (projectsData.success) setProjects(projectsData.data)
+      if (tasksData.success) setTasks(tasksData.data)
+      if (risksData.success) setRisks(risksData.data)
       
       // Refresh selected project if one is selected
       if (selectedProjectId) {
@@ -135,28 +127,27 @@ export default function Home() {
     }
   }, [fetchData, isAuthenticated])
 
-  // Auto-refresh data when window regains focus (after sleep/wake)
+  // Auto-refresh data when window regains focus (after sleep/wake) - with debounce
   useEffect(() => {
     if (!isAuthenticated) return
     
+    let lastRefresh = Date.now()
+    const MIN_REFRESH_INTERVAL = 5000 // 5 seconds minimum between refreshes
+    
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible') {
-        console.log('Window regained focus - refreshing data...')
-        fetchData(false)
+        const now = Date.now()
+        if (now - lastRefresh > MIN_REFRESH_INTERVAL) {
+          lastRefresh = now
+          fetchData(false)
+        }
       }
     }
 
-    const handleFocus = () => {
-      console.log('Window focused - refreshing data...')
-      fetchData(false)
-    }
-
     document.addEventListener('visibilitychange', handleVisibilityChange)
-    window.addEventListener('focus', handleFocus)
 
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange)
-      window.removeEventListener('focus', handleFocus)
     }
   }, [fetchData, isAuthenticated])
 
