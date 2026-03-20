@@ -21,25 +21,25 @@ export async function POST(request: NextRequest) {
     const projects = await db.project.findMany({
       where: whereProject,
       include: {
-        tasks: {
+        Task: {
           include: {
-            subTasks: true
+            SubTask: true
           }
         },
-        expenses: true,
-        risks: true
+        Expense: true,
+        Risk: true
       },
       orderBy: { createdAt: 'desc' }
     })
 
     // Calculate stats
     const totalProjects = projects.length
-    const totalTasks = projects.reduce((sum, p) => sum + (p.tasks?.length || 0), 0)
-    const completedTasks = projects.reduce((sum, p) => sum + (p.tasks?.filter(t => t.status === 'Validé').length || 0), 0)
-    const lateTasks = projects.reduce((sum, p) => sum + (p.tasks?.filter(t => t.status === 'En retard').length || 0), 0)
-    const inProgressTasks = projects.reduce((sum, p) => sum + (p.tasks?.filter(t => t.status === 'En cours').length || 0), 0)
-    const totalRisks = projects.reduce((sum, p) => sum + (p.risks?.length || 0), 0)
-    const criticalRisks = projects.reduce((sum, p) => sum + (p.risks?.filter(r => r.severity === 'Critique' || r.severity === 'Haute').length || 0), 0)
+    const totalTasks = projects.reduce((sum, p) => sum + (p.Task?.length || 0), 0)
+    const completedTasks = projects.reduce((sum, p) => sum + (p.Task?.filter(t => t.status === 'Validé').length || 0), 0)
+    const lateTasks = projects.reduce((sum, p) => sum + (p.Task?.filter(t => t.status === 'En retard').length || 0), 0)
+    const inProgressTasks = projects.reduce((sum, p) => sum + (p.Task?.filter(t => t.status === 'En cours').length || 0), 0)
+    const totalRisks = projects.reduce((sum, p) => sum + (p.Risk?.length || 0), 0)
+    const criticalRisks = projects.reduce((sum, p) => sum + (p.Risk?.filter(r => r.severity === 'Critique' || r.severity === 'Haute').length || 0), 0)
     const totalBudget = projects.reduce((sum, p) => sum + p.budgetPlanned, 0)
     const spentBudget = projects.reduce((sum, p) => sum + p.budgetSpent, 0)
 
@@ -54,13 +54,13 @@ export async function POST(request: NextRequest) {
         status: p.status || '',
         budgetPlanned: p.budgetPlanned || 0,
         budgetSpent: p.budgetSpent || 0,
-        tasks: (p.tasks || []).map(t => ({
+        tasks: (p.Task || []).map(t => ({
           title: t.title || '',
           status: t.status || '',
           priority: t.priority || '',
           dueDate: t.dueDate || null
         })),
-        risks: (p.risks || []).map(r => ({
+        risks: (p.Risk || []).map(r => ({
           title: r.title || '',
           severity: r.severity || '',
           probability: r.probability || '',

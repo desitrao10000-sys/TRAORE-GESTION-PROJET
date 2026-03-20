@@ -21,13 +21,13 @@ export async function POST(request: NextRequest) {
     const projects = await db.project.findMany({
       where: whereProject,
       include: {
-        tasks: {
+        Task: {
           include: {
-            subTasks: true
+            SubTask: true
           }
         },
-        expenses: true,
-        risks: true
+        Expense: true,
+        Risk: true
       },
       orderBy: { createdAt: 'desc' }
     })
@@ -45,7 +45,7 @@ export async function POST(request: NextRequest) {
         budgetSpent: p.budgetSpent || 0,
         startDate: p.startDate || null,
         endDate: p.endDate || null,
-        tasks: (p.tasks || []).map(t => ({
+        tasks: (p.Task || []).map(t => ({
           title: t.title || '',
           status: t.status || '',
           priority: t.priority || '',
@@ -53,9 +53,9 @@ export async function POST(request: NextRequest) {
           estimatedTime: t.estimatedTime || 0,
           actualTime: t.actualTime || 0,
           assigneeName: t.assigneeName || '',
-          subTasksCount: t.subTasks?.length || 0
+          subTasksCount: t.SubTask?.length || 0
         })),
-        risks: (p.risks || []).map(r => ({
+        risks: (p.Risk || []).map(r => ({
           title: r.title || '',
           severity: r.severity || '',
           probability: r.probability || '',
@@ -63,7 +63,7 @@ export async function POST(request: NextRequest) {
           status: r.status || '',
           mitigation: r.mitigation || ''
         })),
-        expenses: (p.expenses || []).map(e => ({
+        expenses: (p.Expense || []).map(e => ({
           description: e.description || '',
           amount: e.amount || 0,
           category: e.category || '',
