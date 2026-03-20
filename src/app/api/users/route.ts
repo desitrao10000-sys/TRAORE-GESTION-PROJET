@@ -7,8 +7,13 @@ export async function GET(request: NextRequest) {
     // Vérifier l'authentification
     const sessionToken = request.cookies.get('session_token')?.value
     
+    console.log('GET /api/users - sessionToken:', sessionToken ? 'present' : 'missing')
+    
     if (!sessionToken) {
-      return NextResponse.json({ error: 'Non autorisé' }, { status: 401 })
+      return NextResponse.json({ 
+        success: false, 
+        error: 'Non autorisé - Veuillez vous connecter' 
+      }, { status: 401 })
     }
 
     const session = await db.session.findUnique({
@@ -17,12 +22,22 @@ export async function GET(request: NextRequest) {
     })
 
     if (!session || session.expiresAt < new Date()) {
-      return NextResponse.json({ error: 'Session expirée' }, { status: 401 })
+      return NextResponse.json({ 
+        success: false, 
+        error: 'Session expirée - Veuillez vous reconnecter' 
+      }, { status: 401 })
     }
 
-    // Seul le gestionnaire peut voir tous les utilisateurs
-    if (session.User.role !== 'gestionnaire') {
-      return NextResponse.json({ error: 'Accès refusé' }, { status: 403 })
+    const userRole = session.User.role?.toLowerCase()
+    console.log('GET /api/users - user role:', session.User.role, '(normalized:', userRole, ')')
+    
+    // Accepter plusieurs rôles d'administrateur
+    const adminRoles = ['gestionnaire', 'admin', 'administrateur', 'chef de projet']
+    if (!adminRoles.includes(userRole)) {
+      return NextResponse.json({ 
+        success: false, 
+        error: 'Accès refusé - Vous devez être gestionnaire ou admin' 
+      }, { status: 403 })
     }
 
     // Récupérer tous les utilisateurs
@@ -32,6 +47,10 @@ export async function GET(request: NextRequest) {
         email: true,
         name: true,
         role: true,
+        avatar: true,
+        phone: true,
+        position: true,
+        department: true,
         isActive: true,
         createdAt: true,
         lastLoginAt: true
@@ -39,12 +58,17 @@ export async function GET(request: NextRequest) {
       orderBy: { createdAt: 'desc' }
     })
 
+    console.log(`GET /api/users - Found ${users.length} users`)
+
     return NextResponse.json({
       success: true,
       users
     })
   } catch (error) {
     console.error('Error fetching users:', error)
-    return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 })
+    return NextResponse.json({ 
+      success: false, 
+      error: 'Erreur serveur' 
+    }, { status: 500 })
   }
 }

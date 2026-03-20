@@ -13,7 +13,10 @@ export async function GET(
     const sessionToken = request.cookies.get('session_token')?.value
 
     if (!sessionToken) {
-      return NextResponse.json({ error: 'Non autorisé' }, { status: 401 })
+      return NextResponse.json({ 
+        success: false, 
+        error: 'Non autorisé' 
+      }, { status: 401 })
     }
 
     const session = await db.session.findUnique({
@@ -22,7 +25,10 @@ export async function GET(
     })
 
     if (!session || session.expiresAt < new Date()) {
-      return NextResponse.json({ error: 'Session expirée' }, { status: 401 })
+      return NextResponse.json({ 
+        success: false, 
+        error: 'Session expirée' 
+      }, { status: 401 })
     }
 
     // Récupérer l'utilisateur demandé
@@ -46,7 +52,10 @@ export async function GET(
     })
 
     if (!user) {
-      return NextResponse.json({ error: 'Utilisateur non trouvé' }, { status: 404 })
+      return NextResponse.json({ 
+        success: false, 
+        error: 'Utilisateur non trouvé' 
+      }, { status: 404 })
     }
 
     return NextResponse.json({
@@ -55,7 +64,10 @@ export async function GET(
     })
   } catch (error) {
     console.error('Error fetching user:', error)
-    return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 })
+    return NextResponse.json({ 
+      success: false, 
+      error: 'Erreur serveur' 
+    }, { status: 500 })
   }
 }
 
@@ -71,7 +83,10 @@ export async function DELETE(
     const sessionToken = request.cookies.get('session_token')?.value
     
     if (!sessionToken) {
-      return NextResponse.json({ error: 'Non autorisé' }, { status: 401 })
+      return NextResponse.json({ 
+        success: false, 
+        error: 'Non autorisé' 
+      }, { status: 401 })
     }
 
     const session = await db.session.findUnique({
@@ -80,12 +95,21 @@ export async function DELETE(
     })
 
     if (!session || session.expiresAt < new Date()) {
-      return NextResponse.json({ error: 'Session expirée' }, { status: 401 })
+      return NextResponse.json({ 
+        success: false, 
+        error: 'Session expirée' 
+      }, { status: 401 })
     }
 
+    const userRole = session.User.role?.toLowerCase()
+    const adminRoles = ['gestionnaire', 'admin', 'administrateur']
+    
     // Seul le gestionnaire peut supprimer des utilisateurs
-    if (session.User.role !== 'gestionnaire') {
-      return NextResponse.json({ error: 'Accès refusé' }, { status: 403 })
+    if (!adminRoles.includes(userRole)) {
+      return NextResponse.json({ 
+        success: false, 
+        error: 'Accès refusé - Seul un gestionnaire peut supprimer des membres' 
+      }, { status: 403 })
     }
 
     // Vérifier que l'utilisateur à supprimer existe
@@ -94,13 +118,18 @@ export async function DELETE(
     })
 
     if (!userToDelete) {
-      return NextResponse.json({ error: 'Utilisateur non trouvé' }, { status: 404 })
+      return NextResponse.json({ 
+        success: false, 
+        error: 'Utilisateur non trouvé' 
+      }, { status: 404 })
     }
 
-    // Empêcher la suppression du gestionnaire
-    if (userToDelete.role === 'gestionnaire') {
+    // Empêcher la suppression du gestionnaire ou admin
+    const protectedRoles = ['gestionnaire', 'admin', 'administrateur']
+    if (protectedRoles.includes(userToDelete.role?.toLowerCase())) {
       return NextResponse.json({ 
-        error: 'Impossible de supprimer le gestionnaire principal' 
+        success: false,
+        error: 'Impossible de supprimer un gestionnaire ou un admin' 
       }, { status: 400 })
     }
 
@@ -120,6 +149,9 @@ export async function DELETE(
     })
   } catch (error) {
     console.error('Error deleting user:', error)
-    return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 })
+    return NextResponse.json({ 
+      success: false, 
+      error: 'Erreur serveur' 
+    }, { status: 500 })
   }
 }

@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { UserPlus, Users, Trash2, Mail, Shield, User, Loader2, AlertCircle, Check, X, RefreshCw } from 'lucide-react'
+import { UserPlus, Users, Trash2, Mail, Shield, User, Loader2, AlertCircle, Check, X, RefreshCw, Lock } from 'lucide-react'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -12,18 +12,23 @@ interface Member {
   email: string
   name: string | null
   role: string
+  avatar?: string | null
+  phone?: string | null
+  position?: string | null
+  department?: string | null
   isActive: boolean
   createdAt: string
   lastLoginAt: string | null
 }
 
 export function MembersManagement() {
-  const { setCurrentPage, setViewingUserId } = useAppStore()
+  const { setCurrentPage, setViewingUserId, user: currentUser } = useAppStore()
   const [members, setMembers] = useState<Member[]>([])
   const [loading, setLoading] = useState(true)
   const [creating, setCreating] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
+  const [accessDenied, setAccessDenied] = useState(false)
   
   // Form state
   const [newName, setNewName] = useState('')
@@ -39,15 +44,26 @@ export function MembersManagement() {
   const loadMembers = async () => {
     setLoading(true)
     setError(null)
+    setAccessDenied(false)
+    
     try {
-      console.log('Fetching members from /api/users...')
       const res = await fetch('/api/users')
       const data = await res.json()
-      console.log('API response:', data)
+      
+      if (res.status === 401) {
+        setAccessDenied(true)
+        setError(data.error || 'Veuillez vous connecter pour accéder à cette fonctionnalité')
+        return
+      }
+      
+      if (res.status === 403) {
+        setAccessDenied(true)
+        setError(data.error || 'Accès réservé aux gestionnaires')
+        return
+      }
       
       if (data.success) {
         setMembers(data.users || [])
-        console.log(`Loaded ${data.users?.length || 0} members`)
       } else {
         setError(data.error || 'Erreur lors du chargement des membres')
       }
@@ -67,12 +83,14 @@ export function MembersManagement() {
   useEffect(() => {
     if (error || success) {
       const timer = setTimeout(() => {
-        setError(null)
+        if (!accessDenied) {
+          setError(null)
+        }
         setSuccess(null)
       }, 5000)
       return () => clearTimeout(timer)
     }
-  }, [error, success])
+  }, [error, success, accessDenied])
 
   // Créer un membre
   const handleCreateMember = async (e: React.FormEvent) => {
@@ -151,16 +169,41 @@ export function MembersManagement() {
 
   // Voir le profil d'un membre
   const handleViewMember = (member: Member) => {
+    console.log('Viewing member:', member.id, member.name)
     setViewingUserId(member.id)
     setCurrentPage('profile')
   }
 
+  // État de chargement
   if (loading) {
     return (
       <Card className="bg-gradient-to-br from-[#1e3a5f] to-[#1a2744] border-blue-400/30">
         <CardContent className="py-8">
-          <div className="flex items-center justify-center">
-            <Loader2 className="w-6 h-6 animate-spin text-amber-400" />
+          <div className="flex flex-col items-center justify-center gap-3">
+            <Loader2 className="w-8 h-8 animate-spin text-amber-400" />
+            <p className="text-blue-200">Chargement des membres...</p>
+          </div>
+        </CardContent>
+      </Card>
+    )
+  }
+
+  // État accès refusé
+  if (accessDenied) {
+    return (
+      <Card className="bg-gradient-to-br from-[#1e3a5f] to-[#1a2744] border-blue-400/30">
+        <CardContent className="py-8">
+          <div className="flex flex-col items-center justify-center gap-4 text-center">
+            <div className="w-16 h-16 rounded-full bg-red-500/20 flex items-center justify-center">
+              <Lock className="w-8 h-8 text-red-400" />
+            </div>
+            <div>
+              <h3 className="text-lg font-bold text-white mb-2">Accès restreint</h3>
+              <p className="text-blue-200">{error}</p>
+            </div>
+            <p className="text-sm text-blue-300/70 mt-2">
+              Connectez-vous avec un compte gestionnaire pour accéder à cette fonctionnalité.
+            </p>
           </div>
         </CardContent>
       </Card>
@@ -169,6 +212,16 @@ export function MembersManagement() {
 
   return (
     <div className="space-y-6">
+      {/* En-tête avec info utilisateur */}
+      <div className="bg-blue-500/10 border border-blue-400/20 rounded-lg p-3">
+        <p className="text-sm text-blue-200">
+          <strong>Connecté en tant que:</strong> {currentUser?.name || 'Utilisateur'} 
+          <span className="ml-2 px-2 py-0.5 rounded-full text-xs bg-amber-500/20 text-amber-300">
+            {currentUser?.role}
+          </span>
+        </p>
+      </div>
+
       {/* Liste des membres */}
       <Card className="bg-gradient-to-br from-[#1e3a5f] to-[#1a2744] border-blue-400/30">
         <CardHeader>
@@ -215,10 +268,10 @@ export function MembersManagement() {
           {/* Formulaire de création */}
           {showForm && (
             <form onSubmit={handleCreateMember} className="p-4 bg-white/5 rounded-lg border border-blue-400/20 space-y-4">
-              <h4 className="text-white font-medium">Créer un nouveau compte membre</h4>
+              <h4 className="text-white font-medium text-lg">Créer un nouveau compte membre</h4>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
-                  <label className="text-sm text-blue-200 mb-1 block">Nom complet</label>
+                  <label className="text-sm text-blue-200 mb-1 block">Nom complet *</label>
                   <Input
                     value={newName}
                     onChange={(e) => setNewName(e.target.value)}
@@ -227,7 +280,7 @@ export function MembersManagement() {
                   />
                 </div>
                 <div>
-                  <label className="text-sm text-blue-200 mb-1 block">Email</label>
+                  <label className="text-sm text-blue-200 mb-1 block">Email *</label>
                   <Input
                     type="email"
                     value={newEmail}
@@ -237,7 +290,7 @@ export function MembersManagement() {
                   />
                 </div>
                 <div>
-                  <label className="text-sm text-blue-200 mb-1 block">Mot de passe</label>
+                  <label className="text-sm text-blue-200 mb-1 block">Mot de passe *</label>
                   <Input
                     type="password"
                     value={newPassword}
@@ -269,7 +322,8 @@ export function MembersManagement() {
                     setNewEmail('')
                     setNewPassword('')
                   }}
-                  className="bg-gray-500 hover:bg-gray-600 text-white"
+                  variant="outline"
+                  className="border-blue-400/30 text-white hover:bg-white/10"
                 >
                   Annuler
                 </Button>
@@ -279,8 +333,8 @@ export function MembersManagement() {
 
           {/* Modal de confirmation de suppression */}
           {memberToDelete && (
-            <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-              <div className="bg-[#1e3a5f] rounded-xl p-6 max-w-md w-full mx-4 border border-blue-400/30">
+            <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
+              <div className="bg-gradient-to-br from-[#1e3a5f] to-[#1a2744] rounded-xl p-6 max-w-md w-full mx-4 border border-blue-400/30 shadow-2xl">
                 <div className="flex items-center gap-3 mb-4">
                   <div className="w-12 h-12 rounded-full bg-red-500/20 flex items-center justify-center">
                     <Trash2 className="w-6 h-6 text-red-400" />
@@ -291,15 +345,22 @@ export function MembersManagement() {
                   </div>
                 </div>
                 
-                <div className="bg-white/5 rounded-lg p-3 mb-4">
-                  <p className="text-white font-medium">{memberToDelete.name}</p>
-                  <p className="text-blue-200 text-sm">{memberToDelete.email}</p>
+                <div className="bg-white/5 rounded-lg p-4 mb-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-blue-500 flex items-center justify-center">
+                      <User className="w-5 h-5 text-white" />
+                    </div>
+                    <div>
+                      <p className="text-white font-medium">{memberToDelete.name || 'Sans nom'}</p>
+                      <p className="text-blue-200 text-sm">{memberToDelete.email}</p>
+                    </div>
+                  </div>
                 </div>
                 
                 <div className="flex gap-3">
                   <Button
                     onClick={() => setMemberToDelete(null)}
-                    className="flex-1 bg-gray-500 hover:bg-gray-600 text-white"
+                    className="flex-1 bg-gray-600 hover:bg-gray-700 text-white"
                   >
                     <X className="w-4 h-4 mr-2" />
                     Annuler
@@ -327,43 +388,56 @@ export function MembersManagement() {
               <div
                 key={member.id}
                 onClick={() => handleViewMember(member)}
-                className="flex items-center justify-between p-3 bg-white/5 rounded-lg border border-blue-400/20 cursor-pointer hover:bg-white/10 transition-colors"
+                className="flex items-center justify-between p-4 bg-white/5 rounded-lg border border-blue-400/20 cursor-pointer hover:bg-white/10 hover:border-blue-400/40 transition-all group"
               >
-                <div className="flex items-center gap-3">
-                  <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
-                    member.role === 'gestionnaire' 
-                      ? 'bg-amber-500' 
-                      : 'bg-blue-500'
+                <div className="flex items-center gap-4">
+                  <div className={`w-12 h-12 rounded-full flex items-center justify-center ${
+                    member.role?.toLowerCase() === 'gestionnaire' || member.role?.toLowerCase() === 'admin'
+                      ? 'bg-gradient-to-br from-amber-400 to-amber-600' 
+                      : 'bg-gradient-to-br from-blue-400 to-blue-600'
                   }`}>
-                    {member.role === 'gestionnaire' ? (
-                      <Shield className="w-5 h-5 text-white" />
+                    {member.role?.toLowerCase() === 'gestionnaire' || member.role?.toLowerCase() === 'admin' ? (
+                      <Shield className="w-6 h-6 text-white" />
                     ) : (
-                      <User className="w-5 h-5 text-white" />
+                      <User className="w-6 h-6 text-white" />
                     )}
                   </div>
                   <div>
-                    <p className="text-white font-medium">{member.name || 'Sans nom'}</p>
-                    <p className="text-sm text-blue-200 flex items-center gap-1">
-                      <Mail className="w-3 h-3" />
-                      {member.email}
+                    <p className="text-white font-medium text-lg group-hover:text-amber-300 transition-colors">
+                      {member.name || 'Sans nom'}
                     </p>
+                    <div className="flex items-center gap-3 text-sm text-blue-200">
+                      <span className="flex items-center gap-1">
+                        <Mail className="w-3 h-3" />
+                        {member.email}
+                      </span>
+                      {member.position && (
+                        <span className="text-blue-300/70">
+                          • {member.position}
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
-                  <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                    member.role === 'gestionnaire' 
-                      ? 'bg-amber-500/20 text-amber-300' 
-                      : 'bg-blue-500/20 text-blue-300'
+                  <span className={`px-3 py-1 rounded-full text-xs font-medium ${
+                    member.role?.toLowerCase() === 'gestionnaire' || member.role?.toLowerCase() === 'admin'
+                      ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30' 
+                      : member.role?.toLowerCase() === 'chef de projet'
+                      ? 'bg-purple-500/20 text-purple-300 border border-purple-500/30'
+                      : 'bg-blue-500/20 text-blue-300 border border-blue-500/30'
                   }`}>
-                    {member.role === 'gestionnaire' ? 'Gestionnaire' : 'Membre'}
+                    {member.role?.toLowerCase() === 'gestionnaire' ? 'Gestionnaire' : 
+                     member.role?.toLowerCase() === 'admin' ? 'Admin' :
+                     member.role || 'Membre'}
                   </span>
-                  {member.role !== 'gestionnaire' && (
+                  {member.role?.toLowerCase() !== 'gestionnaire' && member.role?.toLowerCase() !== 'admin' && (
                     <Button
                       onClick={(e) => {
                         e.stopPropagation()
                         setMemberToDelete(member)
                       }}
-                      className="bg-red-500/20 hover:bg-red-500/30 text-red-300 p-2"
+                      className="bg-red-500/20 hover:bg-red-500/40 text-red-300 p-2 opacity-0 group-hover:opacity-100 transition-opacity"
                       title="Supprimer"
                     >
                       <Trash2 className="w-4 h-4" />
@@ -374,8 +448,12 @@ export function MembersManagement() {
             ))}
           </div>
 
-          {members.length === 0 && (
-            <p className="text-center text-blue-200 py-4">Aucun membre pour le moment</p>
+          {members.length === 0 && !error && (
+            <div className="text-center py-8">
+              <Users className="w-12 h-12 text-blue-400/50 mx-auto mb-3" />
+              <p className="text-blue-200">Aucun membre pour le moment</p>
+              <p className="text-blue-300/50 text-sm mt-1">Cliquez sur "Ajouter un membre" pour commencer</p>
+            </div>
           )}
         </CardContent>
       </Card>
