@@ -23,6 +23,7 @@ import { Folder, Project, Task, Risk } from '@/types'
 import { Settings, Bell, Cloud, Save } from 'lucide-react'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
+import { MembersManagement } from '@/components/app/MembersManagement'
 
 export default function Home() {
   const hydrated = useHydration()
@@ -408,6 +409,11 @@ export default function Home() {
                 <h1 className="text-2xl font-bold text-white drop-shadow-lg">Paramètres</h1>
                 <p className="text-blue-200 mt-1">Configuration de l'application</p>
               </div>
+              
+              {/* Gestion des membres - Seulement pour le gestionnaire */}
+              {user?.role === 'gestionnaire' && (
+                <MembersManagement />
+              )}
               
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 {/* Paramètres généraux */}

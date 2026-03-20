@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Lock, Mail, Eye, EyeOff, LogIn, AlertCircle, Loader2, UserPlus, User } from 'lucide-react'
+import { Lock, Mail, Eye, EyeOff, LogIn, AlertCircle, Loader2 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -17,15 +17,11 @@ interface LoginPageProps {
 }
 
 export function LoginPage({ onLogin }: LoginPageProps) {
-  const [mode, setMode] = useState<'login' | 'register'>('login')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [name, setName] = useState('')
-  const [confirmPassword, setConfirmPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [success, setSuccess] = useState<string | null>(null)
   const [initializing, setInitializing] = useState(true)
 
   // Initialiser l'utilisateur par défaut au premier chargement
@@ -54,7 +50,7 @@ export function LoginPage({ onLogin }: LoginPageProps) {
     initAuth()
   }, [onLogin])
 
-  const handleLogin = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError(null)
     setLoading(true)
@@ -72,59 +68,6 @@ export function LoginPage({ onLogin }: LoginPageProps) {
         onLogin(data.user)
       } else {
         setError(data.error || 'Erreur de connexion')
-      }
-    } catch (err) {
-      setError('Erreur de connexion au serveur')
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const handleRegister = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setError(null)
-    setSuccess(null)
-
-    // Validation
-    if (!name.trim()) {
-      setError('Le nom est requis')
-      return
-    }
-    if (!email.trim()) {
-      setError('L\'email est requis')
-      return
-    }
-    if (password.length < 6) {
-      setError('Le mot de passe doit contenir au moins 6 caractères')
-      return
-    }
-    if (password !== confirmPassword) {
-      setError('Les mots de passe ne correspondent pas')
-      return
-    }
-
-    setLoading(true)
-
-    try {
-      const res = await fetch('/api/auth/init', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          email: email.toLowerCase(), 
-          name, 
-          password 
-        })
-      })
-
-      const data = await res.json()
-
-      if (data.success) {
-        setSuccess('Compte créé avec succès! Vous pouvez maintenant vous connecter.')
-        setMode('login')
-        setPassword('')
-        setConfirmPassword('')
-      } else {
-        setError(data.error || 'Erreur lors de la création du compte')
       }
     } catch (err) {
       setError('Erreur de connexion au serveur')
@@ -156,211 +99,80 @@ export function LoginPage({ onLogin }: LoginPageProps) {
           <p className="text-blue-200">Connectez-vous pour accéder à votre espace</p>
         </div>
 
-        {/* Formulaire de connexion ou inscription */}
+        {/* Formulaire de connexion */}
         <Card className="bg-white/95 backdrop-blur-sm shadow-xl border-0">
           <CardHeader className="space-y-1 pb-4">
-            <CardTitle className="text-xl text-center text-gray-800">
-              {mode === 'login' ? 'Connexion' : 'Créer un compte'}
-            </CardTitle>
+            <CardTitle className="text-xl text-center text-gray-800">Connexion</CardTitle>
             <CardDescription className="text-center text-gray-500">
-              {mode === 'login' 
-                ? 'Entrez vos identifiants pour vous connecter'
-                : 'Remplissez le formulaire pour créer votre compte'
-              }
+              Entrez vos identifiants pour vous connecter
             </CardDescription>
           </CardHeader>
           <CardContent>
-            {mode === 'login' ? (
-              <form onSubmit={handleLogin} className="space-y-4">
-                {error && (
-                  <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-lg text-red-600 text-sm">
-                    <AlertCircle className="w-4 h-4 flex-shrink-0" />
-                    <span>{error}</span>
-                  </div>
+            <form onSubmit={handleSubmit} className="space-y-4">
+              {error && (
+                <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-lg text-red-600 text-sm">
+                  <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                  <span>{error}</span>
+                </div>
+              )}
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-gray-700">Email</label>
+                <div className="relative">
+                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                  <Input
+                    type="email"
+                    placeholder="votre@email.com"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className="pl-10"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-gray-700">Mot de passe</label>
+                <div className="relative">
+                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                  <Input
+                    type={showPassword ? 'text' : 'password'}
+                    placeholder="••••••••"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="pl-10 pr-10"
+                    required
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                  >
+                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+              </div>
+
+              <Button
+                type="submit"
+                disabled={loading}
+                className="w-full bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white font-semibold py-2.5 shadow-lg shadow-amber-500/30"
+              >
+                {loading ? (
+                  <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                ) : (
+                  <LogIn className="w-4 h-4 mr-2" />
                 )}
+                {loading ? 'Connexion...' : 'Se connecter'}
+              </Button>
+            </form>
 
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-gray-700">Email</label>
-                  <div className="relative">
-                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                    <Input
-                      type="email"
-                      placeholder="votre@email.com"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      className="pl-10"
-                      required
-                    />
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-gray-700">Mot de passe</label>
-                  <div className="relative">
-                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                    <Input
-                      type={showPassword ? 'text' : 'password'}
-                      placeholder="••••••••"
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      className="pl-10 pr-10"
-                      required
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                    >
-                      {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                    </button>
-                  </div>
-                </div>
-
-                <Button
-                  type="submit"
-                  disabled={loading}
-                  className="w-full bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white font-semibold py-2.5 shadow-lg shadow-amber-500/30"
-                >
-                  {loading ? (
-                    <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                  ) : (
-                    <LogIn className="w-4 h-4 mr-2" />
-                  )}
-                  {loading ? 'Connexion...' : 'Se connecter'}
-                </Button>
-
-                {/* Lien pour créer un compte */}
-                <div className="text-center pt-4 border-t">
-                  <p className="text-sm text-gray-600">
-                    Pas encore de compte?{' '}
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setMode('register')
-                        setError(null)
-                      }}
-                      className="text-amber-600 hover:text-amber-700 font-medium"
-                    >
-                      Créer un compte
-                    </button>
-                  </p>
-                </div>
-              </form>
-            ) : (
-              <form onSubmit={handleRegister} className="space-y-4">
-                {error && (
-                  <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-lg text-red-600 text-sm">
-                    <AlertCircle className="w-4 h-4 flex-shrink-0" />
-                    <span>{error}</span>
-                  </div>
-                )}
-
-                {success && (
-                  <div className="flex items-center gap-2 p-3 bg-green-50 border border-green-200 rounded-lg text-green-600 text-sm">
-                    <UserPlus className="w-4 h-4 flex-shrink-0" />
-                    <span>{success}</span>
-                  </div>
-                )}
-
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-gray-700">Nom complet</label>
-                  <div className="relative">
-                    <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                    <Input
-                      type="text"
-                      placeholder="Votre nom"
-                      value={name}
-                      onChange={(e) => setName(e.target.value)}
-                      className="pl-10"
-                      required
-                    />
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-gray-700">Email</label>
-                  <div className="relative">
-                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                    <Input
-                      type="email"
-                      placeholder="votre@email.com"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      className="pl-10"
-                      required
-                    />
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-gray-700">Mot de passe</label>
-                  <div className="relative">
-                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                    <Input
-                      type={showPassword ? 'text' : 'password'}
-                      placeholder="Minimum 6 caractères"
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      className="pl-10 pr-10"
-                      required
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                    >
-                      {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                    </button>
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-gray-700">Confirmer le mot de passe</label>
-                  <div className="relative">
-                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                    <Input
-                      type="password"
-                      placeholder="Répétez le mot de passe"
-                      value={confirmPassword}
-                      onChange={(e) => setConfirmPassword(e.target.value)}
-                      className="pl-10"
-                      required
-                    />
-                  </div>
-                </div>
-
-                <Button
-                  type="submit"
-                  disabled={loading}
-                  className="w-full bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white font-semibold py-2.5 shadow-lg shadow-amber-500/30"
-                >
-                  {loading ? (
-                    <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                  ) : (
-                    <UserPlus className="w-4 h-4 mr-2" />
-                  )}
-                  {loading ? 'Création...' : 'Créer mon compte'}
-                </Button>
-
-                {/* Lien pour se connecter */}
-                <div className="text-center pt-4 border-t">
-                  <p className="text-sm text-gray-600">
-                    Déjà un compte?{' '}
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setMode('login')
-                        setError(null)
-                        setSuccess(null)
-                      }}
-                      className="text-amber-600 hover:text-amber-700 font-medium"
-                    >
-                      Se connecter
-                    </button>
-                  </p>
-                </div>
-              </form>
-            )}
+            {/* Note pour les membres */}
+            <div className="mt-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
+              <p className="text-sm text-blue-700">
+                <strong>Membre?</strong> Contactez votre gestionnaire pour obtenir vos identifiants de connexion.
+              </p>
+            </div>
           </CardContent>
         </Card>
 
