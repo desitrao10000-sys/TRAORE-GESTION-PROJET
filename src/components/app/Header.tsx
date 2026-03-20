@@ -87,7 +87,12 @@ export function Header({ currentPage, onNavigate, user, onLogout }: HeaderProps)
     <header className="h-16 bg-gradient-to-r from-[#2563eb] via-[#1d4ed8] to-[#1e40af] border-b border-blue-400/30 flex items-center justify-between px-6 shadow-lg shadow-blue-500/20 rounded-br-2xl rounded-tr-2xl">
       {/* Logo */}
       <div className="flex items-center gap-4">
-        <h1 className="text-xl font-bold text-amber-400 tracking-wide drop-shadow-lg">GESTION PROJET</h1>
+        <div className="flex items-center gap-2">
+          <div className="w-8 h-8 bg-gradient-to-br from-amber-400 to-amber-600 rounded-lg flex items-center justify-center">
+            <span className="text-sm font-bold text-white">NGP</span>
+          </div>
+          <h1 className="text-xl font-bold text-amber-400 tracking-wide drop-shadow-lg">NEW GESTION PROJET</h1>
+        </div>
         {backupStatus?.hasChanges && (
           <span className="text-xs text-amber-300 bg-amber-400/20 px-2 py-1 rounded-full">
             {backupStatus.changesCount} modification{backupStatus.changesCount > 1 ? 's' : ''} non sauvegardée{backupStatus.changesCount > 1 ? 's' : ''}
