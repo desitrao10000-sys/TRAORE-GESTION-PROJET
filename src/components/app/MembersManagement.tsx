@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { UserPlus, Users, Trash2, Mail, Shield, User, Loader2, AlertCircle, Check, X } from 'lucide-react'
+import { UserPlus, Users, Trash2, Mail, Shield, User, Loader2, AlertCircle, Check, X, RefreshCw } from 'lucide-react'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -37,14 +37,23 @@ export function MembersManagement() {
 
   // Charger les membres
   const loadMembers = async () => {
+    setLoading(true)
+    setError(null)
     try {
+      console.log('Fetching members from /api/users...')
       const res = await fetch('/api/users')
       const data = await res.json()
+      console.log('API response:', data)
+      
       if (data.success) {
-        setMembers(data.users)
+        setMembers(data.users || [])
+        console.log(`Loaded ${data.users?.length || 0} members`)
+      } else {
+        setError(data.error || 'Erreur lors du chargement des membres')
       }
     } catch (err) {
       console.error('Error loading members:', err)
+      setError('Erreur de connexion au serveur')
     } finally {
       setLoading(false)
     }
@@ -163,18 +172,29 @@ export function MembersManagement() {
       {/* Liste des membres */}
       <Card className="bg-gradient-to-br from-[#1e3a5f] to-[#1a2744] border-blue-400/30">
         <CardHeader>
-          <CardTitle className="text-white flex items-center justify-between">
+          <CardTitle className="text-white flex items-center justify-between flex-wrap gap-2">
             <span className="flex items-center gap-2">
               <Users className="w-5 h-5 text-amber-400" />
               Gestion des membres ({members.length})
             </span>
-            <Button
-              onClick={() => setShowForm(!showForm)}
-              className="bg-amber-500 hover:bg-amber-600 text-black font-bold"
-            >
-              <UserPlus className="w-4 h-4 mr-2" />
-              Ajouter un membre
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button
+                onClick={loadMembers}
+                disabled={loading}
+                variant="outline"
+                className="border-blue-400/30 text-white hover:bg-white/10"
+                title="Rafraîchir"
+              >
+                <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+              </Button>
+              <Button
+                onClick={() => setShowForm(!showForm)}
+                className="bg-amber-500 hover:bg-amber-600 text-black font-bold"
+              >
+                <UserPlus className="w-4 h-4 mr-2" />
+                Ajouter un membre
+              </Button>
+            </div>
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
