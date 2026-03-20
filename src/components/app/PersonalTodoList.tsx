@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { 
   Plus, 
   Trash2, 
@@ -9,148 +9,208 @@ import {
   AlertCircle,
   Calendar,
   ListTodo,
-  ChevronDown,
-  ChevronUp
+  CalendarClock,
+  History,
+  X
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Checkbox } from '@/components/ui/checkbox'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
+import { Card, CardContent } from '@/components/ui/card'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
+import { Badge } from '@/components/ui/badge'
+import { format } from 'date-fns'
+import { fr } from 'date-fns/locale'
 
 interface PersonalTask {
   id: string
   title: string
-  description?: string
-  status: 'À faire' | 'En cours' | 'Validé'
-  priority: 'Basse' | 'Moyenne' | 'Haute'
-  dueDate?: string
+  description: string | null
+  status: string
+  priority: string
+  dueDate: string | null
+  completedAt: string | null
+  originalDueDate: string | null
+  reprogrammed: boolean
+  reprogrammedAt: string | null
+  reprogramReason: string | null
+  reprogramCount: number
   createdAt: string
-  completedAt?: string
-}
-
-const STORAGE_KEY = 'traore-personal-todo'
-
-// Function to load initial tasks from localStorage
-const loadInitialTasks = (): PersonalTask[] => {
-  if (typeof window === 'undefined') return []
-  const saved = localStorage.getItem(STORAGE_KEY)
-  if (saved) {
-    try {
-      return JSON.parse(saved)
-    } catch (e) {
-      console.error('Error loading personal tasks:', e)
-      return []
-    }
-  }
-  return []
+  updatedAt: string
 }
 
 export function PersonalTodoList() {
-  const [tasks, setTasks] = useState<PersonalTask[]>(loadInitialTasks)
+  const [tasks, setTasks] = useState<PersonalTask[]>([])
+  const [loading, setLoading] = useState(true)
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
+  const [isReprogramDialogOpen, setIsReprogramDialogOpen] = useState(false)
+  const [selectedTask, setSelectedTask] = useState<PersonalTask | null>(null)
   const [newTask, setNewTask] = useState({
     title: '',
     description: '',
-    priority: 'Moyenne' as 'Basse' | 'Moyenne' | 'Haute',
+    priority: 'Moyenne',
     dueDate: ''
   })
+  const [reprogramData, setReprogramData] = useState({
+    newDueDate: '',
+    reason: ''
+  })
   const [filter, setFilter] = useState<'all' | 'active' | 'completed'>('all')
-  const [expandedTask, setExpandedTask] = useState<string | null>(null)
 
-  // Save tasks to localStorage whenever they change
-  useEffect(() => {
-    if (tasks.length > 0 || localStorage.getItem(STORAGE_KEY)) {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(tasks))
+  // Charger les tâches depuis l'API
+  const fetchTasks = useCallback(async () => {
+    try {
+      const res = await fetch('/api/personal-todos')
+      const data = await res.json()
+      if (data.success) {
+        setTasks(data.data)
+      }
+    } catch (error) {
+      console.error('Error fetching personal todos:', error)
+    } finally {
+      setLoading(false)
     }
-  }, [tasks])
+  }, [])
 
-  const addTask = () => {
+  useEffect(() => {
+    fetchTasks()
+  }, [fetchTasks])
+
+  // Ajouter une tâche
+  const addTask = async () => {
     if (!newTask.title.trim()) return
 
-    const task: PersonalTask = {
-      id: Date.now().toString(),
-      title: newTask.title.trim(),
-      description: newTask.description.trim(),
-      status: 'À faire',
-      priority: newTask.priority,
-      dueDate: newTask.dueDate || undefined,
-      createdAt: new Date().toISOString()
+    try {
+      const res = await fetch('/api/personal-todos', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: newTask.title.trim(),
+          description: newTask.description.trim() || null,
+          priority: newTask.priority,
+          dueDate: newTask.dueDate || null
+        })
+      })
+      const data = await res.json()
+      if (data.success) {
+        setTasks(prev => [data.data, ...prev])
+        setNewTask({ title: '', description: '', priority: 'Moyenne', dueDate: '' })
+        setIsAddDialogOpen(false)
+      }
+    } catch (error) {
+      console.error('Error adding task:', error)
     }
-
-    setTasks(prev => [task, ...prev])
-    setNewTask({ title: '', description: '', priority: 'Moyenne', dueDate: '' })
-    setIsAddDialogOpen(false)
   }
 
-  const toggleTaskStatus = (taskId: string) => {
-    setTasks(prev => prev.map(task => {
-      if (task.id === taskId) {
-        const newStatus = task.status === 'Validé' ? 'À faire' : 
-                         task.status === 'À faire' ? 'En cours' : 'Validé'
-        return {
-          ...task,
-          status: newStatus,
-          completedAt: newStatus === 'Validé' ? new Date().toISOString() : undefined
-        }
+  // Mettre à jour le statut
+  const updateTaskStatus = async (taskId: string, status: string) => {
+    try {
+      const res = await fetch(`/api/personal-todos/${taskId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status })
+      })
+      const data = await res.json()
+      if (data.success) {
+        setTasks(prev => prev.map(t => t.id === taskId ? data.data : t))
       }
-      return task
-    }))
+    } catch (error) {
+      console.error('Error updating task:', error)
+    }
   }
 
-  const deleteTask = (taskId: string) => {
-    setTasks(prev => prev.filter(t => t.id !== taskId))
+  // Supprimer une tâche
+  const deleteTask = async (taskId: string) => {
+    try {
+      await fetch(`/api/personal-todos/${taskId}`, { method: 'DELETE' })
+      setTasks(prev => prev.filter(t => t.id !== taskId))
+    } catch (error) {
+      console.error('Error deleting task:', error)
+    }
   }
 
-  const updateTaskStatus = (taskId: string, status: 'À faire' | 'En cours' | 'Validé') => {
-    setTasks(prev => prev.map(task => {
-      if (task.id === taskId) {
-        return {
-          ...task,
-          status,
-          completedAt: status === 'Validé' ? new Date().toISOString() : undefined
-        }
+  // Reprogrammer une tâche
+  const reprogramTask = async () => {
+    if (!selectedTask || !reprogramData.newDueDate) return
+
+    try {
+      const res = await fetch(`/api/personal-todos/${selectedTask.id}/reprogram`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          newDueDate: reprogramData.newDueDate,
+          reason: reprogramData.reason || null
+        })
+      })
+      const data = await res.json()
+      if (data.success) {
+        setTasks(prev => prev.map(t => t.id === selectedTask.id ? data.data : t))
+        setIsReprogramDialogOpen(false)
+        setSelectedTask(null)
+        setReprogramData({ newDueDate: '', reason: '' })
       }
-      return task
-    }))
+    } catch (error) {
+      console.error('Error reprogramming task:', error)
+    }
   }
 
+  // Ouvrir le dialog de reprogrammation
+  const openReprogramDialog = (task: PersonalTask) => {
+    setSelectedTask(task)
+    setReprogramData({
+      newDueDate: task.dueDate ? format(new Date(task.dueDate), 'yyyy-MM-dd') : '',
+      reason: ''
+    })
+    setIsReprogramDialogOpen(true)
+  }
+
+  // Filtrer les tâches
   const filteredTasks = tasks.filter(task => {
     if (filter === 'active') return task.status !== 'Validé'
     if (filter === 'completed') return task.status === 'Validé'
     return true
   })
 
+  // Statistiques
   const stats = {
     total: tasks.length,
     completed: tasks.filter(t => t.status === 'Validé').length,
     inProgress: tasks.filter(t => t.status === 'En cours').length,
-    todo: tasks.filter(t => t.status === 'À faire').length
+    todo: tasks.filter(t => t.status === 'À faire').length,
+    reprogrammed: tasks.filter(t => t.reprogrammed).length
   }
 
+  // Couleurs
   const getPriorityColor = (priority: string) => {
     switch (priority) {
-      case 'Haute': return 'text-red-400 bg-red-500/20'
-      case 'Moyenne': return 'text-amber-400 bg-amber-500/20'
-      case 'Basse': return 'text-green-400 bg-green-500/20'
+      case 'Urgente': return 'text-red-400 bg-red-500/20 border-red-500/30'
+      case 'Haute': return 'text-orange-400 bg-orange-500/20 border-orange-500/30'
+      case 'Moyenne': return 'text-amber-400 bg-amber-500/20 border-amber-500/30'
+      case 'Basse': return 'text-green-400 bg-green-500/20 border-green-500/30'
       default: return 'text-gray-400 bg-gray-500/20'
     }
   }
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'Validé': return 'text-green-400 bg-green-500/20'
-      case 'En cours': return 'text-blue-400 bg-blue-500/20'
-      case 'À faire': return 'text-gray-400 bg-gray-500/20'
-      default: return 'text-gray-400 bg-gray-500/20'
+      case 'Validé': return 'text-green-400 bg-green-500/20 border-green-500/30'
+      case 'En cours': return 'text-blue-400 bg-blue-500/20 border-blue-500/30'
+      default: return 'text-gray-400 bg-gray-500/20 border-gray-500/30'
     }
   }
 
-  const isOverdue = (dueDate?: string, status?: string) => {
+  const isOverdue = (dueDate: string | null, status: string) => {
     if (!dueDate || status === 'Validé') return false
     return new Date(dueDate) < new Date()
+  }
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-amber-400" />
+      </div>
+    )
   }
 
   return (
@@ -166,12 +226,13 @@ export function PersonalTodoList() {
         </div>
         
         <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-          <DialogTrigger asChild>
-            <Button className="bg-amber-500 hover:bg-amber-600 text-black font-bold">
-              <Plus className="w-4 h-4 mr-2" />
-              Nouvelle tâche
-            </Button>
-          </DialogTrigger>
+          <Button 
+            onClick={() => setIsAddDialogOpen(true)}
+            className="bg-amber-500 hover:bg-amber-600 text-black font-bold"
+          >
+            <Plus className="w-4 h-4 mr-2" />
+            Nouvelle tâche
+          </Button>
           <DialogContent className="bg-gradient-to-br from-[#1e3a5f] to-[#1a2744] border-blue-400/30 text-white">
             <DialogHeader>
               <DialogTitle className="text-amber-400">Nouvelle tâche personnelle</DialogTitle>
@@ -199,7 +260,7 @@ export function PersonalTodoList() {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="text-sm text-blue-200 mb-1 block">Priorité</label>
-                  <Select value={newTask.priority} onValueChange={(v: 'Basse' | 'Moyenne' | 'Haute') => setNewTask(prev => ({ ...prev, priority: v }))}>
+                  <Select value={newTask.priority} onValueChange={(v) => setNewTask(prev => ({ ...prev, priority: v }))}>
                     <SelectTrigger className="bg-white/10 border-blue-400/30 text-white">
                       <SelectValue />
                     </SelectTrigger>
@@ -207,6 +268,7 @@ export function PersonalTodoList() {
                       <SelectItem value="Basse">Basse</SelectItem>
                       <SelectItem value="Moyenne">Moyenne</SelectItem>
                       <SelectItem value="Haute">Haute</SelectItem>
+                      <SelectItem value="Urgente">Urgente</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -230,7 +292,7 @@ export function PersonalTodoList() {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
         <Card className="bg-gradient-to-br from-[#1e3a5f] to-[#2d4a6f] border-blue-400/30">
           <CardContent className="p-4">
             <div className="text-2xl font-bold text-white">{stats.total}</div>
@@ -253,6 +315,12 @@ export function PersonalTodoList() {
           <CardContent className="p-4">
             <div className="text-2xl font-bold text-green-400">{stats.completed}</div>
             <div className="text-sm text-blue-200">Validées</div>
+          </CardContent>
+        </Card>
+        <Card className="bg-gradient-to-br from-[#1e3a5f] to-[#2d4a6f] border-blue-400/30">
+          <CardContent className="p-4">
+            <div className="text-2xl font-bold text-amber-400">{stats.reprogrammed}</div>
+            <div className="text-sm text-blue-200">Reprogrammées</div>
           </CardContent>
         </Card>
       </div>
@@ -304,8 +372,12 @@ export function PersonalTodoList() {
                 <div className="flex items-start gap-3">
                   {/* Checkbox */}
                   <button
-                    onClick={() => toggleTaskStatus(task.id)}
-                    className={`mt-1 w-5 h-5 rounded border-2 flex items-center justify-center transition-all ${
+                    onClick={() => {
+                      const newStatus = task.status === 'Validé' ? 'À faire' : 
+                                       task.status === 'À faire' ? 'En cours' : 'Validé'
+                      updateTaskStatus(task.id, newStatus)
+                    }}
+                    className={`mt-1 w-5 h-5 rounded border-2 flex items-center justify-center transition-all flex-shrink-0 ${
                       task.status === 'Validé' 
                         ? 'bg-green-500 border-green-500' 
                         : task.status === 'En cours'
@@ -323,12 +395,18 @@ export function PersonalTodoList() {
                       <span className={`font-medium text-white ${task.status === 'Validé' ? 'line-through' : ''}`}>
                         {task.title}
                       </span>
-                      <span className={`px-2 py-0.5 rounded-full text-xs ${getPriorityColor(task.priority)}`}>
+                      <Badge className={`${getPriorityColor(task.priority)} border text-xs`}>
                         {task.priority}
-                      </span>
-                      <span className={`px-2 py-0.5 rounded-full text-xs ${getStatusColor(task.status)}`}>
+                      </Badge>
+                      <Badge className={`${getStatusColor(task.status)} border text-xs`}>
                         {task.status}
-                      </span>
+                      </Badge>
+                      {task.reprogrammed && (
+                        <Badge className="text-amber-400 bg-amber-500/20 border border-amber-500/30 text-xs">
+                          <CalendarClock className="w-3 h-3 mr-1" />
+                          Reprogrammée
+                        </Badge>
+                      )}
                       {isOverdue(task.dueDate, task.status) && (
                         <span className="flex items-center gap-1 text-xs text-red-400">
                           <AlertCircle className="w-3 h-3" />
@@ -341,22 +419,38 @@ export function PersonalTodoList() {
                       <p className="text-sm text-blue-200 mt-1">{task.description}</p>
                     )}
                     
-                    <div className="flex items-center gap-4 mt-2 text-xs text-blue-300/70">
+                    <div className="flex items-center gap-4 mt-2 text-xs text-blue-300/70 flex-wrap">
                       {task.dueDate && (
                         <span className="flex items-center gap-1">
                           <Calendar className="w-3 h-3" />
-                          {new Date(task.dueDate).toLocaleDateString('fr-FR')}
+                          {format(new Date(task.dueDate), 'd MMM yyyy', { locale: fr })}
                         </span>
                       )}
-                      <span>Créé le {new Date(task.createdAt).toLocaleDateString('fr-FR')}</span>
+                      {task.reprogramCount > 0 && (
+                        <span className="flex items-center gap-1 text-amber-400">
+                          <History className="w-3 h-3" />
+                          {task.reprogramCount}x reprogrammée
+                        </span>
+                      )}
                     </div>
                   </div>
                   
                   {/* Actions */}
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    {task.status !== 'Validé' && task.dueDate && (
+                      <Button
+                        onClick={() => openReprogramDialog(task)}
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-amber-400 hover:text-amber-300 hover:bg-amber-500/20"
+                        title="Reprogrammer"
+                      >
+                        <CalendarClock className="w-4 h-4" />
+                      </Button>
+                    )}
                     <Select
                       value={task.status}
-                      onValueChange={(v: 'À faire' | 'En cours' | 'Validé') => updateTaskStatus(task.id, v)}
+                      onValueChange={(v) => updateTaskStatus(task.id, v)}
                     >
                       <SelectTrigger className="w-[120px] h-8 bg-white/10 border-blue-400/30 text-white text-xs">
                         <SelectValue />
@@ -382,6 +476,71 @@ export function PersonalTodoList() {
           ))
         )}
       </div>
+
+      {/* Dialog Reprogrammation */}
+      <Dialog open={isReprogramDialogOpen} onOpenChange={setIsReprogramDialogOpen}>
+        <DialogContent className="bg-gradient-to-br from-[#1e3a5f] to-[#1a2744] border-blue-400/30 text-white">
+          <DialogHeader>
+            <DialogTitle className="text-amber-400 flex items-center gap-2">
+              <CalendarClock className="w-5 h-5" />
+              Reprogrammer la tâche
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 mt-4">
+            {selectedTask && (
+              <div className="p-3 bg-blue-500/10 rounded-lg border border-blue-400/20">
+                <p className="font-medium text-white">{selectedTask.title}</p>
+                {selectedTask.originalDueDate && (
+                  <p className="text-xs text-blue-300 mt-1">
+                    Date originale: {format(new Date(selectedTask.originalDueDate), 'd MMMM yyyy', { locale: fr })}
+                  </p>
+                )}
+                {selectedTask.reprogramCount > 0 && (
+                  <p className="text-xs text-amber-400">
+                    Déjà reprogrammée {selectedTask.reprogramCount} fois
+                  </p>
+                )}
+              </div>
+            )}
+            <div>
+              <label className="text-sm text-blue-200 mb-1 block">Nouvelle date limite *</label>
+              <Input
+                type="date"
+                value={reprogramData.newDueDate}
+                onChange={(e) => setReprogramData(prev => ({ ...prev, newDueDate: e.target.value }))}
+                className="bg-white/10 border-blue-400/30 text-white"
+              />
+            </div>
+            <div>
+              <label className="text-sm text-blue-200 mb-1 block">Raison de la reprogrammation</label>
+              <Textarea
+                value={reprogramData.reason}
+                onChange={(e) => setReprogramData(prev => ({ ...prev, reason: e.target.value }))}
+                placeholder="Pourquoi reprogrammez-vous cette tâche ?"
+                className="bg-white/10 border-blue-400/30 text-white placeholder:text-gray-400"
+                rows={2}
+              />
+            </div>
+            <div className="flex gap-2">
+              <Button 
+                onClick={() => setIsReprogramDialogOpen(false)}
+                variant="outline"
+                className="flex-1 border-blue-400/30 text-white hover:bg-white/10"
+              >
+                <X className="w-4 h-4 mr-2" />
+                Annuler
+              </Button>
+              <Button 
+                onClick={reprogramTask}
+                className="flex-1 bg-amber-500 hover:bg-amber-600 text-black font-bold"
+              >
+                <CalendarClock className="w-4 h-4 mr-2" />
+                Reprogrammer
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

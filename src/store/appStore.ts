@@ -4,7 +4,27 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { PageType, DashboardTab } from '@/types'
 
+// Type utilisateur
+export interface AuthUser {
+  id: string
+  email: string
+  name: string | null
+  role: 'gestionnaire' | 'membre'
+  avatar: string | null
+  phone?: string | null
+  position?: string | null
+  department?: string | null
+  bio?: string | null
+  skills?: string[]
+}
+
 interface AppState {
+  // Authentication
+  user: AuthUser | null
+  isAuthenticated: boolean
+  setUser: (user: AuthUser | null) => void
+  logout: () => void
+  
   // Navigation
   currentPage: PageType
   setCurrentPage: (page: PageType) => void
@@ -36,6 +56,12 @@ interface AppState {
 export const useAppStore = create<AppState>()(
   persist(
     (set) => ({
+      // Authentication
+      user: null,
+      isAuthenticated: false,
+      setUser: (user) => set({ user, isAuthenticated: !!user, lastActivity: Date.now() }),
+      logout: () => set({ user: null, isAuthenticated: false, currentPage: 'dashboard', lastActivity: Date.now() }),
+      
       // Navigation
       currentPage: 'dashboard',
       setCurrentPage: (page) => set({ currentPage: page, selectedProjectId: null, lastActivity: Date.now() }),
@@ -67,6 +93,8 @@ export const useAppStore = create<AppState>()(
       name: 'traore-gestion-projet-storage', // Nom unique pour localStorage
       partialize: (state) => ({
         // Seulement les données qu'on veut persister
+        user: state.user,
+        isAuthenticated: state.isAuthenticated,
         currentPage: state.currentPage,
         dashboardTab: state.dashboardTab,
         selectedFolderId: state.selectedFolderId,

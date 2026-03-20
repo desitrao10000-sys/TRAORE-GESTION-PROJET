@@ -1,8 +1,8 @@
 // Types pour l'application de gestion de projet
 
-export type PageType = 'dashboard' | 'projects' | 'import-pdf'
+export type PageType = 'dashboard' | 'projects' | 'profile' | 'settings' | 'import-pdf'
 
-export type DashboardTab = 'overview' | 'todo' | 'personal-todo' | 'workload' | 'risks' | 'statistics' | 'reports' | 'gantt'
+export type DashboardTab = 'overview' | 'calendar' | 'gantt' | 'todo' | 'personal-todo' | 'risks' | 'reports'
 
 export type ProjectStatus = 'Actif' | 'En cours' | 'Terminé' | 'Archivé'
 

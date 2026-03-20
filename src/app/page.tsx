@@ -1,25 +1,36 @@
 'use client'
 
+// TRAORE GESTION PROJET - Page principale avec authentification
+// Version: 2.0 avec système d'authentification
+
 import { useState, useEffect, useCallback } from 'react'
-import { useAppStore, useHydration } from '@/store/appStore'
+import { useAppStore, useHydration, AuthUser } from '@/store/appStore'
 import { Header } from '@/components/app/Header'
 import { Sidebar } from '@/components/app/Sidebar'
 import { DashboardOverview } from '@/components/app/DashboardOverview'
+import { DashboardCalendar } from '@/components/app/DashboardCalendar'
+import { UserProfile } from '@/components/app/UserProfile'
 import { PersonalTodoList } from '@/components/app/PersonalTodoList'
-import { DashboardWorkload } from '@/components/app/DashboardWorkload'
 import { DashboardRisks } from '@/components/app/DashboardRisks'
 import { DailyTodoList } from '@/components/app/DailyTodoList'
-import { DashboardStatistics } from '@/components/app/DashboardStatistics'
 import { ReportsExport } from '@/components/app/ReportsExport'
 import { ProjectsList } from '@/components/app/ProjectsList'
 import { ProjectDetail } from '@/components/app/ProjectDetail'
 import { ImportPDF } from '@/components/app/ImportPDF'
 import { GanttView } from '@/components/app/GanttView'
+import { LoginPage } from '@/components/app/LoginPage'
 import { Folder, Project, Task, Risk } from '@/types'
+import { Settings, Bell, Cloud, Save } from 'lucide-react'
+import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
 
 export default function Home() {
   const hydrated = useHydration()
   const {
+    user,
+    isAuthenticated,
+    setUser,
+    logout,
     currentPage,
     setCurrentPage,
     dashboardTab,
@@ -37,9 +48,35 @@ export default function Home() {
   const [risks, setRisks] = useState<Risk[]>([])
   const [selectedProject, setSelectedProject] = useState<Project | null>(null)
   const [loading, setLoading] = useState(true)
+  const [checkingAuth, setCheckingAuth] = useState(true)
+
+  // Vérifier l'authentification au chargement
+  useEffect(() => {
+    const checkAuth = async () => {
+      try {
+        const res = await fetch('/api/auth/me')
+        if (res.ok) {
+          const data = await res.json()
+          if (data.success && data.user) {
+            setUser(data.user)
+          }
+        }
+      } catch (error) {
+        console.error('Auth check error:', error)
+      } finally {
+        setCheckingAuth(false)
+      }
+    }
+
+    if (hydrated) {
+      checkAuth()
+    }
+  }, [hydrated, setUser])
 
   // Fetch all data function
   const fetchData = useCallback(async (showLoading = true) => {
+    if (!isAuthenticated) return
+    
     try {
       if (showLoading) setLoading(true)
       
@@ -85,19 +122,23 @@ export default function Home() {
     } finally {
       if (showLoading) setLoading(false)
     }
-  }, [selectedProjectId])
+  }, [selectedProjectId, isAuthenticated])
 
-  // Fetch all data on mount
+  // Fetch all data on mount or when authenticated
   useEffect(() => {
-    fetchData()
-  }, [fetchData])
+    if (isAuthenticated) {
+      fetchData()
+    }
+  }, [fetchData, isAuthenticated])
 
   // Auto-refresh data when window regains focus (after sleep/wake)
   useEffect(() => {
+    if (!isAuthenticated) return
+    
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible') {
         console.log('Window regained focus - refreshing data...')
-        fetchData(false) // Refresh without showing loading spinner
+        fetchData(false)
       }
     }
 
@@ -106,21 +147,19 @@ export default function Home() {
       fetchData(false)
     }
 
-    // Listen for visibility change (tab switch, wake from sleep)
     document.addEventListener('visibilitychange', handleVisibilityChange)
-    
-    // Listen for window focus
     window.addEventListener('focus', handleFocus)
 
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange)
       window.removeEventListener('focus', handleFocus)
     }
-  }, [fetchData])
+  }, [fetchData, isAuthenticated])
 
   // Auto-save to GitHub periodically (every 5 minutes) and before page unload
   useEffect(() => {
-    // Auto-save interval (5 minutes)
+    if (!isAuthenticated) return
+    
     const autoSaveInterval = setInterval(async () => {
       try {
         await fetch('/api/backup', { method: 'POST' })
@@ -128,18 +167,14 @@ export default function Home() {
       } catch (error) {
         console.error('Auto-save failed:', error)
       }
-    }, 5 * 60 * 1000) // 5 minutes
+    }, 5 * 60 * 1000)
 
-    // Save before page unload (warning: may not complete)
     const handleBeforeUnload = async (e: BeforeUnloadEvent) => {
-      // Check if there are unsaved changes
       try {
         const res = await fetch('/api/backup')
         const data = await res.json()
         if (data.success && data.hasChanges) {
-          // Trigger save (may not complete in time)
           fetch('/api/backup', { method: 'POST' })
-          // Show warning to user
           e.preventDefault()
           e.returnValue = 'Vous avez des modifications non sauvegardées. Voulez-vous vraiment quitter ?'
           return e.returnValue
@@ -155,7 +190,7 @@ export default function Home() {
       clearInterval(autoSaveInterval)
       window.removeEventListener('beforeunload', handleBeforeUnload)
     }
-  }, [])
+  }, [isAuthenticated])
 
   // Fetch selected project details
   useEffect(() => {
@@ -178,6 +213,21 @@ export default function Home() {
     
     fetchProject()
   }, [selectedProjectId])
+
+  // Handle login
+  const handleLogin = (loggedInUser: AuthUser) => {
+    setUser(loggedInUser)
+  }
+
+  // Handle logout
+  const handleLogout = async () => {
+    try {
+      await fetch('/api/auth/logout', { method: 'POST' })
+    } catch (error) {
+      console.error('Logout error:', error)
+    }
+    logout()
+  }
 
   // Calculate stats
   const stats = {
@@ -219,7 +269,8 @@ export default function Home() {
     await fetchData(false)
   }, [fetchData])
 
-  if (!hydrated || loading) {
+  // Afficher le loader pendant l'hydratation ou la vérification de l'auth
+  if (!hydrated || checkingAuth) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-[#1a2744] via-[#1e3a5f] to-[#0f1225] flex items-center justify-center">
         <div className="text-center">
@@ -230,10 +281,32 @@ export default function Home() {
     )
   }
 
+  // Afficher la page de connexion si non authentifié
+  if (!isAuthenticated) {
+    return <LoginPage onLogin={handleLogin} />
+  }
+
+  // Afficher le loader pendant le chargement des données
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-[#1a2744] via-[#1e3a5f] to-[#0f1225] flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-amber-400 mx-auto mb-4"></div>
+          <p className="text-gray-300">Chargement des données...</p>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#1a2744] via-[#1e3a5f] to-[#0f1225] flex flex-col">
       {/* Header */}
-      <Header currentPage={currentPage} onNavigate={setCurrentPage} />
+      <Header 
+        currentPage={currentPage} 
+        onNavigate={setCurrentPage}
+        user={user}
+        onLogout={handleLogout}
+      />
       
       {/* Main content */}
       <div className="flex flex-1 overflow-hidden">
@@ -246,6 +319,7 @@ export default function Home() {
           onNavigate={setCurrentPage}
           onDashboardTabChange={setDashboardTab}
           onFolderSelect={handleFolderSelect}
+          user={user}
         />
         
         {/* Content area */}
@@ -258,6 +332,7 @@ export default function Home() {
                   stats={stats}
                   projects={projects}
                   tasks={tasks}
+                  risks={risks}
                   onProjectClick={handleProjectClick}
                   onNavigate={setCurrentPage}
                 />
@@ -273,12 +348,7 @@ export default function Home() {
               {dashboardTab === 'personal-todo' && (
                 <PersonalTodoList />
               )}
-              {dashboardTab === 'workload' && (
-                <DashboardWorkload
-                  tasks={tasks}
-                  projects={projects}
-                />
-              )}
+              
               {dashboardTab === 'risks' && (
                 <DashboardRisks
                   risks={risks}
@@ -286,13 +356,7 @@ export default function Home() {
                   onProjectClick={handleProjectClick}
                 />
               )}
-              {dashboardTab === 'statistics' && (
-                <DashboardStatistics
-                  tasks={tasks}
-                  projects={projects}
-                  risks={risks}
-                />
-              )}
+              
               {dashboardTab === 'reports' && (
                 <ReportsExport
                   tasks={tasks}
@@ -305,6 +369,12 @@ export default function Home() {
                   projects={projects}
                   tasks={tasks}
                   onProjectClick={handleProjectClick}
+                />
+              )}
+              {dashboardTab === 'calendar' && (
+                <DashboardCalendar
+                  tasks={tasks}
+                  projects={projects}
                 />
               )}
             </>
@@ -328,6 +398,102 @@ export default function Home() {
             )
           )}
           
+          {/* Profile */}
+          {currentPage === 'profile' && <UserProfile />}
+          
+          {/* Settings */}
+          {currentPage === 'settings' && (
+            <div className="space-y-6">
+              <div>
+                <h1 className="text-2xl font-bold text-white drop-shadow-lg">Paramètres</h1>
+                <p className="text-blue-200 mt-1">Configuration de l'application</p>
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                {/* Paramètres généraux */}
+                <Card className="bg-gradient-to-br from-[#1e3a5f] to-[#1a2744] border-blue-400/30">
+                  <CardHeader>
+                    <CardTitle className="text-white flex items-center gap-2">
+                      <Settings className="w-5 h-5 text-amber-400" />
+                      Général
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div>
+                      <label className="text-sm text-blue-200 mb-1 block">Langue</label>
+                      <select className="w-full p-2 bg-white/10 border border-blue-400/30 rounded-lg text-white">
+                        <option value="fr">Français</option>
+                        <option value="en">English</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="text-sm text-blue-200 mb-1 block">Fuseau horaire</label>
+                      <select className="w-full p-2 bg-white/10 border border-blue-400/30 rounded-lg text-white">
+                        <option value="africa/abidjan">Afrique/Abidjan (GMT)</option>
+                        <option value="europe/paris">Europe/Paris (CET)</option>
+                      </select>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Notifications */}
+                <Card className="bg-gradient-to-br from-[#1e3a5f] to-[#1a2744] border-blue-400/30">
+                  <CardHeader>
+                    <CardTitle className="text-white flex items-center gap-2">
+                      <Bell className="w-5 h-5 text-amber-400" />
+                      Notifications
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    <label className="flex items-center justify-between">
+                      <span className="text-blue-200">Rappels par email</span>
+                      <input type="checkbox" className="w-4 h-4" defaultChecked />
+                    </label>
+                    <label className="flex items-center justify-between">
+                      <span className="text-blue-200">Alertes de retard</span>
+                      <input type="checkbox" className="w-4 h-4" defaultChecked />
+                    </label>
+                    <label className="flex items-center justify-between">
+                      <span className="text-blue-200">Résumé quotidien</span>
+                      <input type="checkbox" className="w-4 h-4" />
+                    </label>
+                  </CardContent>
+                </Card>
+
+                {/* Sauvegarde */}
+                <Card className="bg-gradient-to-br from-[#1e3a5f] to-[#1a2744] border-blue-400/30">
+                  <CardHeader>
+                    <CardTitle className="text-white flex items-center gap-2">
+                      <Cloud className="w-5 h-5 text-amber-400" />
+                      Sauvegarde
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    <p className="text-sm text-blue-200">
+                      Sauvegarde automatique toutes les 5 minutes
+                    </p>
+                    <Button 
+                      className="w-full bg-amber-500 hover:bg-amber-600 text-black font-bold"
+                      onClick={async () => {
+                        try {
+                          const res = await fetch('/api/backup', { method: 'POST' })
+                          if (res.ok) {
+                            alert('Sauvegarde réussie!')
+                          }
+                        } catch (error) {
+                          console.error('Backup error:', error)
+                        }
+                      }}
+                    >
+                      <Save className="w-4 h-4 mr-2" />
+                      Sauvegarder maintenant
+                    </Button>
+                  </CardContent>
+                </Card>
+              </div>
+            </div>
+          )}
+          
           {/* Import PDF */}
           {currentPage === 'import-pdf' && <ImportPDF />}
         </main>
@@ -335,4 +501,3 @@ export default function Home() {
     </div>
   )
 }
-// Force rebuild

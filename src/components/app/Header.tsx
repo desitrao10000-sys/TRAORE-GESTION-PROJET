@@ -2,11 +2,14 @@
 
 import { useState, useEffect } from 'react'
 import { PageType } from '@/types'
-import { Save, Cloud, CloudOff, Check, AlertCircle } from 'lucide-react'
+import { Save, Cloud, Check, AlertCircle, LogOut, User, ChevronDown, Settings } from 'lucide-react'
+import { AuthUser } from '@/store/appStore'
 
 interface HeaderProps {
   currentPage: PageType
   onNavigate: (page: PageType) => void
+  user?: AuthUser | null
+  onLogout?: () => void
 }
 
 const navItems: { key: PageType; label: string }[] = [
@@ -25,11 +28,12 @@ interface BackupStatus {
   changesCount: number
 }
 
-export function Header({ currentPage, onNavigate }: HeaderProps) {
+export function Header({ currentPage, onNavigate, user, onLogout }: HeaderProps) {
   const [saving, setSaving] = useState(false)
   const [lastSave, setLastSave] = useState<string | null>(null)
   const [saveError, setSaveError] = useState<string | null>(null)
   const [backupStatus, setBackupStatus] = useState<BackupStatus | null>(null)
+  const [showUserMenu, setShowUserMenu] = useState(false)
 
   // Check backup status on mount
   useEffect(() => {
@@ -58,9 +62,7 @@ export function Header({ currentPage, onNavigate }: HeaderProps) {
       
       if (data.success) {
         setLastSave(data.message)
-        // Clear success message after 3 seconds
         setTimeout(() => setLastSave(null), 3000)
-        // Refresh backup status
         await checkBackupStatus()
       } else {
         setSaveError(data.error || 'Erreur de sauvegarde')
@@ -71,6 +73,13 @@ export function Header({ currentPage, onNavigate }: HeaderProps) {
       setTimeout(() => setSaveError(null), 5000)
     } finally {
       setSaving(false)
+    }
+  }
+
+  const handleLogout = () => {
+    setShowUserMenu(false)
+    if (onLogout) {
+      onLogout()
     }
   }
 
@@ -151,6 +160,83 @@ export function Header({ currentPage, onNavigate }: HeaderProps) {
             )}
           </button>
         </div>
+
+        {/* User Menu */}
+        {user && (
+          <div className="relative">
+            <button
+              onClick={() => setShowUserMenu(!showUserMenu)}
+              className="flex items-center gap-2 px-3 py-2 rounded-xl bg-white/10 hover:bg-white/20 transition-colors"
+            >
+              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-amber-400 to-amber-600 flex items-center justify-center">
+                {user.avatar ? (
+                  <img src={user.avatar} alt={user.name || ''} className="w-8 h-8 rounded-full" />
+                ) : (
+                  <User className="w-4 h-4 text-white" />
+                )}
+              </div>
+              <div className="text-left hidden sm:block">
+                <p className="text-sm font-medium text-white">{user.name || 'Utilisateur'}</p>
+                <p className="text-xs text-blue-200 capitalize">{user.role}</p>
+              </div>
+              <ChevronDown className="w-4 h-4 text-blue-200" />
+            </button>
+
+            {/* Dropdown Menu */}
+            {showUserMenu && (
+              <>
+                <div 
+                  className="fixed inset-0 z-40" 
+                  onClick={() => setShowUserMenu(false)}
+                />
+                <div className="absolute right-0 top-full mt-2 w-56 bg-white rounded-xl shadow-xl border border-gray-100 z-50 overflow-hidden">
+                  <div className="p-3 border-b border-gray-100 bg-gray-50">
+                    <p className="font-medium text-gray-800">{user.name || 'Utilisateur'}</p>
+                    <p className="text-sm text-gray-500">{user.email}</p>
+                    <span className={`inline-block mt-1 px-2 py-0.5 rounded-full text-xs font-medium ${
+                      user.role === 'gestionnaire' 
+                        ? 'bg-amber-100 text-amber-700' 
+                        : 'bg-blue-100 text-blue-700'
+                    }`}>
+                      {user.role === 'gestionnaire' ? 'Gestionnaire' : 'Membre'}
+                    </span>
+                  </div>
+                  <div className="py-1">
+                    <button
+                      onClick={() => {
+                        setShowUserMenu(false)
+                        onNavigate('profile')
+                      }}
+                      className="w-full flex items-center gap-2 px-3 py-2.5 text-gray-700 hover:bg-gray-50 transition-colors"
+                    >
+                      <User className="w-4 h-4" />
+                      <span>Mon profil</span>
+                    </button>
+                    <button
+                      onClick={() => {
+                        setShowUserMenu(false)
+                        onNavigate('settings')
+                      }}
+                      className="w-full flex items-center gap-2 px-3 py-2.5 text-gray-700 hover:bg-gray-50 transition-colors"
+                    >
+                      <Settings className="w-4 h-4" />
+                      <span>Paramètres</span>
+                    </button>
+                  </div>
+                  <div className="border-t border-gray-100">
+                    <button
+                      onClick={handleLogout}
+                      className="w-full flex items-center gap-2 px-3 py-2.5 text-red-600 hover:bg-red-50 transition-colors"
+                    >
+                      <LogOut className="w-4 h-4" />
+                      <span>Déconnexion</span>
+                    </button>
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
+        )}
       </div>
     </header>
   )
