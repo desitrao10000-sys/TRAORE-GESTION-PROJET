@@ -249,7 +249,7 @@ export function UserProfile() {
                   ? 'bg-amber-500/20 text-amber-300 border-amber-500/30' 
                   : 'bg-blue-500/20 text-blue-300 border-blue-500/30'
               } border`}>
-                {profile?.role === 'gestionnaire' ? 'Gestionnaire Principal' : 'Membre'}
+                {profile?.role === 'gestionnaire' ? 'Gestionnaire' : 'Membre'}
               </Badge>
             </div>
 

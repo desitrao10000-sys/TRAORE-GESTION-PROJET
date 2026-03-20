@@ -42,7 +42,7 @@ export async function GET() {
       data: {
         id: generateId(),
         email: 'admin@traoreprojet.com',
-        name: 'Gestionnaire Principal',
+        name: 'Gestionnaire',
         password: hashedPassword,
         role: 'gestionnaire',
         isActive: true,

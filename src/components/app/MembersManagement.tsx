@@ -264,6 +264,24 @@ export function MembersManagement() {
       </CardHeader>
       
       <CardContent className="p-6 space-y-4">
+        {/* Résumé des rôles */}
+        <div className="p-4 bg-gradient-to-r from-amber-500/10 to-blue-500/10 rounded-lg border border-amber-500/20">
+          <h4 className="text-sm font-semibold text-white mb-3 flex items-center gap-2">
+            <Shield className="w-4 h-4 text-amber-400" />
+            Résumé des rôles
+          </h4>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+            <div className="flex items-start gap-2 p-2 bg-amber-500/10 rounded">
+              <span className="font-semibold text-amber-400 min-w-[90px]">Gestionnaire</span>
+              <span className="text-blue-200">TOUT (projets, tâches, paramètres, suppression) • Compte par défaut</span>
+            </div>
+            <div className="flex items-start gap-2 p-2 bg-blue-500/10 rounded">
+              <span className="font-semibold text-blue-400 min-w-[90px]">Membre</span>
+              <span className="text-blue-200">Tâches assignées, profil seulement • Créé par le gestionnaire</span>
+            </div>
+          </div>
+        </div>
+
         {/* Messages */}
         {error && (
           <div className="flex items-center gap-2 p-3 bg-red-500/20 border border-red-500/30 rounded-lg text-red-300 text-sm">
