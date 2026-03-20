@@ -54,6 +54,18 @@ interface UserTask {
 
 type ProfileTab = 'info' | 'tasks' | 'activity' | 'cv'
 
+// Fonction utilitaire pour parser les skills
+function parseSkills(skills: string | string[] | null | undefined): string[] {
+  if (!skills) return []
+  if (Array.isArray(skills)) return skills
+  try {
+    const parsed = JSON.parse(skills)
+    return Array.isArray(parsed) ? parsed : []
+  } catch {
+    return []
+  }
+}
+
 export function UserProfile() {
   const { user, viewingUserId, setViewingUserId, setCurrentPage } = useAppStore()
   const [activeTab, setActiveTab] = useState<ProfileTab>('info')
@@ -84,6 +96,16 @@ export function UserProfile() {
           const res = await fetch(`/api/users/${viewingUserId}`)
           const data = await res.json()
           if (data.success && data.user) {
+            // Parser les skills si c'est une chaîne JSON
+            let skillsArray: string[] = []
+            if (data.user.skills) {
+              try {
+                skillsArray = typeof data.user.skills === 'string' 
+                  ? JSON.parse(data.user.skills) 
+                  : data.user.skills
+              } catch { skillsArray = [] }
+            }
+            
             setProfile(data.user)
             setEditData({
               name: data.user.name || '',
@@ -91,7 +113,7 @@ export function UserProfile() {
               position: data.user.position || '',
               department: data.user.department || '',
               bio: data.user.bio || '',
-              skills: data.user.skills?.join(', ') || ''
+              skills: skillsArray.join(', ')
             })
           } else {
             // Utilisateur non trouvé - retour aux paramètres
@@ -104,6 +126,16 @@ export function UserProfile() {
           const res = await fetch('/api/auth/me')
           const data = await res.json()
           if (data.success && data.user) {
+            // Parser les skills si c'est une chaîne JSON
+            let skillsArray: string[] = []
+            if (data.user.skills) {
+              try {
+                skillsArray = typeof data.user.skills === 'string' 
+                  ? JSON.parse(data.user.skills) 
+                  : data.user.skills
+              } catch { skillsArray = [] }
+            }
+            
             setProfile(data.user)
             setEditData({
               name: data.user.name || '',
@@ -111,7 +143,7 @@ export function UserProfile() {
               position: data.user.position || '',
               department: data.user.department || '',
               bio: data.user.bio || '',
-              skills: data.user.skills?.join(', ') || ''
+              skills: skillsArray.join(', ')
             })
           }
         }
@@ -430,11 +462,11 @@ export function UserProfile() {
                         </div>
                       )}
 
-                      {profile?.skills && profile.skills.length > 0 && (
+                      {profile?.skills && parseSkills(profile.skills).length > 0 && (
                         <div>
                           <p className="text-sm text-blue-300 mb-2">Compétences</p>
                           <div className="flex flex-wrap gap-2">
-                            {profile.skills.map((skill, index) => (
+                            {parseSkills(profile.skills).map((skill, index) => (
                               <Badge key={index} className="bg-amber-500/20 text-amber-300 border border-amber-500/30">
                                 {skill}
                               </Badge>
@@ -574,14 +606,14 @@ export function UserProfile() {
                   </div>
 
                   {/* Compétences */}
-                  {profile?.skills && profile.skills.length > 0 && (
+                  {profile?.skills && parseSkills(profile.skills).length > 0 && (
                     <div className="mb-6">
                       <div className="flex items-center gap-2 mb-3">
                         <Award className="w-5 h-5 text-amber-400" />
                         <h4 className="text-white font-medium">Compétences</h4>
                       </div>
                       <div className="flex flex-wrap gap-2">
-                        {profile.skills.map((skill, index) => (
+                        {parseSkills(profile.skills).map((skill, index) => (
                           <Badge 
                             key={index} 
                             className="bg-gradient-to-r from-amber-500/20 to-amber-400/10 text-amber-300 border border-amber-500/30 px-3 py-1"
