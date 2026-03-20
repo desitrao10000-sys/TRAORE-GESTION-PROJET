@@ -412,33 +412,8 @@ export default function Home() {
                 <p className="text-blue-200 mt-1">Configuration de l'application</p>
               </div>
               
-              {/* Gestion des membres - Pour les gestionnaires et admins */}
-              {(['gestionnaire', 'admin', 'administrateur', 'chef de projet'].includes(user?.role?.toLowerCase() || '')) ? (
-                <MembersManagement />
-              ) : (
-                <Card className="bg-gradient-to-br from-[#1e3a5f] to-[#1a2744] border-blue-400/30">
-                  <CardContent className="py-8">
-                    <div className="flex flex-col items-center justify-center gap-4 text-center">
-                      <div className="w-16 h-16 rounded-full bg-blue-500/20 flex items-center justify-center">
-                        <Users className="w-8 h-8 text-blue-400" />
-                      </div>
-                      <div>
-                        <h3 className="text-lg font-bold text-white mb-2">Gestion des membres</h3>
-                        <p className="text-blue-200">Cette fonctionnalité est réservée aux gestionnaires.</p>
-                      </div>
-                      <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-4 mt-2">
-                        <p className="text-amber-300 text-sm">
-                          <strong>Pour accéder à cette fonctionnalité:</strong><br />
-                          Connectez-vous avec le compte gestionnaire principal:<br />
-                          <span className="font-mono bg-black/20 px-2 py-1 rounded mt-1 inline-block">
-                            admin@traoreprojet.com
-                          </span>
-                        </p>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
+              {/* Gestion des membres - Toujours visible pour le gestionnaire */}
+              <MembersManagement />
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {/* Paramètres généraux */}
