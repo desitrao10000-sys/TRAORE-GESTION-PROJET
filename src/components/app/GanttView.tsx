@@ -123,6 +123,9 @@ export function GanttView({ projects, tasks, onProjectClick }: GanttViewProps) {
     const viewStart = startOfMonth(currentDate)
     const viewEnd = endOfMonth(currentDate)
     
+    // Vérifier si le projet est dans le mois affiché
+    if (endDate < viewStart || startDate > viewEnd) return null
+    
     // Ajuster les dates si elles débordent
     const effectiveStart = startDate < viewStart ? viewStart : startDate
     const effectiveEnd = endDate > viewEnd ? viewEnd : endDate
@@ -130,10 +133,13 @@ export function GanttView({ projects, tasks, onProjectClick }: GanttViewProps) {
     const startOffset = differenceInDays(effectiveStart, viewStart)
     const duration = differenceInDays(effectiveEnd, effectiveStart) + 1
     
-    const left = (startOffset / totalDays) * 100
-    const width = (duration / totalDays) * 100
+    // S'assurer que les valeurs sont valides
+    if (startOffset < 0 || duration <= 0) return null
     
-    return { left: `${left}%`, width: `${Math.max(width, 2)}%` }
+    const left = Math.max((startOffset / totalDays) * 100, 0)
+    const width = Math.max((duration / totalDays) * 100, 2)
+    
+    return { left: `${left}%`, width: `${width}%` }
   }
 
   // Vérifier si un jour est aujourd'hui
