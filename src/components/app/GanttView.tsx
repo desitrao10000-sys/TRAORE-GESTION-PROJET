@@ -24,17 +24,16 @@ export function GanttView({ projects, tasks, onProjectClick }: GanttViewProps) {
     const start = startOfMonth(currentDate)
     const end = endOfMonth(currentDate)
     
-    if (viewMode === 'week') {
-      return eachDayOfInterval({ start, end })
-    }
-    
-    // Pour le mode mois, on affiche par semaine
+    // Toujours calculer les semaines pour l'affichage par semaine
     const weeks: Date[][] = []
     let currentWeek: Date[] = []
     
-    eachDayOfInterval({ start, end }).forEach((day, index) => {
+    const allDays = eachDayOfInterval({ start, end })
+    
+    allDays.forEach((day, index) => {
       currentWeek.push(day)
-      if (day.getDay() === 0 || index === eachDayOfInterval({ start, end }).length - 1) {
+      // Fin de semaine (dimanche) ou dernier jour du mois
+      if (day.getDay() === 0 || index === allDays.length - 1) {
         if (currentWeek.length > 0) {
           weeks.push([...currentWeek])
           currentWeek = []
@@ -42,8 +41,8 @@ export function GanttView({ projects, tasks, onProjectClick }: GanttViewProps) {
       }
     })
     
-    return weeks
-  }, [currentDate, viewMode])
+    return { days: allDays, weeks }
+  }, [currentDate])
 
   // Filtrer les données
   const filteredProjects = useMemo(() => {
@@ -245,7 +244,7 @@ export function GanttView({ projects, tasks, onProjectClick }: GanttViewProps) {
               <div className="flex-1 flex">
                 {viewMode === 'month' ? (
                   // Affichage par jour
-                  daysInMonth.map((day, index) => (
+                  dateRange.days.map((day, index) => (
                     <div
                       key={index}
                       className={`flex-1 min-w-8 p-1 text-center border-r border-blue-400/10 ${
@@ -262,14 +261,14 @@ export function GanttView({ projects, tasks, onProjectClick }: GanttViewProps) {
                   ))
                 ) : (
                   // Affichage par semaine
-                  (dateRange as Date[][]).map((week, index) => (
+                  dateRange.weeks.map((week, index) => (
                     <div
                       key={index}
                       className="flex-1 p-2 text-center border-r border-blue-400/10"
                     >
                       <div className="text-xs text-blue-300">Sem {index + 1}</div>
                       <div className="text-sm text-white">
-                        {format(week[0], 'd')} - {format(week[week.length - 1], 'd')}
+                        {week[0] ? format(week[0], 'd') : '-'} - {week.length > 0 && week[week.length - 1] ? format(week[week.length - 1], 'd') : '-'}
                       </div>
                     </div>
                   ))
@@ -283,7 +282,7 @@ export function GanttView({ projects, tasks, onProjectClick }: GanttViewProps) {
                 <div
                   className="absolute top-0 bottom-0 w-0.5 bg-amber-500 z-20"
                   style={{
-                    left: `calc(288px + ${((differenceInDays(new Date(), startOfMonth(currentDate)) + 0.5) / daysInMonth.length) * 100}%)`
+                    left: `calc(288px + ${((differenceInDays(new Date(), startOfMonth(currentDate)) + 0.5) / dateRange.days.length) * 100}%)`
                   }}
                 >
                   <div className="absolute -top-1 left-1/2 -translate-x-1/2 bg-amber-500 text-white text-xs px-2 py-0.5 rounded-full whitespace-nowrap">
