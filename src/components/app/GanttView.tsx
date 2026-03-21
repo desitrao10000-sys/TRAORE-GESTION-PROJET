@@ -135,12 +135,6 @@ export function GanttView({ projects, tasks, onProjectClick }: GanttViewProps) {
     return { left: `${left}%`, width: `${Math.max(width, 2)}%` }
   }
 
-  // Jours du mois pour l'en-tête
-  const daysInMonth = eachDayOfInterval({
-    start: startOfMonth(currentDate),
-    end: endOfMonth(currentDate)
-  })
-
   // Vérifier si un jour est aujourd'hui
   const isToday = (day: Date) => isSameDay(day, new Date())
 
@@ -338,7 +332,7 @@ export function GanttView({ projects, tasks, onProjectClick }: GanttViewProps) {
                           {projectStartDate && projectEndDate && (
                             <div
                               className={`absolute top-3 h-10 rounded-lg ${getStatusColor(project.status)} opacity-80 flex items-center px-2 shadow-lg cursor-pointer`}
-                              style={getBarStyle(projectStartDate, projectEndDate, daysInMonth.length)}
+                              style={getBarStyle(projectStartDate, projectEndDate, dateRange.days.length)}
                               onClick={() => onProjectClick?.(project.id)}
                             >
                               <span className="text-white text-xs font-semibold truncate">
@@ -375,7 +369,7 @@ export function GanttView({ projects, tasks, onProjectClick }: GanttViewProps) {
                               {taskStartDate && taskEndDate && (
                                 <div
                                   className={`absolute top-2 h-6 rounded ${getStatusColor(task.status)} opacity-60 flex items-center px-2`}
-                                  style={getBarStyle(taskStartDate, taskEndDate, daysInMonth.length)}
+                                  style={getBarStyle(taskStartDate, taskEndDate, dateRange.days.length)}
                                 >
                                   <span className="text-white text-xs truncate">
                                     {task.title}
