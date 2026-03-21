@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useRef, useEffect } from 'react'
 import { Project, Task } from '@/types'
 import { format, differenceInDays, addDays, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, isWithinInterval, parseISO } from 'date-fns'
 import { fr } from 'date-fns/locale'
@@ -18,6 +18,7 @@ export function GanttView({ projects, tasks, onProjectClick }: GanttViewProps) {
   const [currentDate, setCurrentDate] = useState(new Date())
   const [viewMode, setViewMode] = useState<ViewMode>('month')
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null)
+  const ganttContainerRef = useRef<HTMLDivElement>(null)
 
   // Calculer la plage de dates à afficher
   const dateRange = useMemo(() => {
@@ -213,7 +214,19 @@ export function GanttView({ projects, tasks, onProjectClick }: GanttViewProps) {
 
           {/* Aujourd'hui */}
           <button
-            onClick={() => setCurrentDate(new Date())}
+            onClick={() => {
+              const today = new Date()
+              setCurrentDate(today)
+              // Défiler vers aujourd'hui après un court délai
+              setTimeout(() => {
+                if (ganttContainerRef.current) {
+                  const todayElement = ganttContainerRef.current.querySelector('[data-today="true"]')
+                  if (todayElement) {
+                    todayElement.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' })
+                  }
+                }
+              }, 100)
+            }}
             className="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-lg text-sm font-semibold transition-all"
           >
             Aujourd&apos;hui
@@ -222,7 +235,7 @@ export function GanttView({ projects, tasks, onProjectClick }: GanttViewProps) {
       </div>
 
       {/* Diagramme de Gantt */}
-      <div className="bg-gradient-to-br from-[#1e3a5f] to-[#1a2744] rounded-xl border border-blue-400/30 overflow-hidden shadow-lg shadow-blue-500/10">
+      <div ref={ganttContainerRef} className="bg-gradient-to-br from-[#1e3a5f] to-[#1a2744] rounded-xl border border-blue-400/30 overflow-hidden shadow-lg shadow-blue-500/10">
         <div className="overflow-x-auto">
           <div className="min-w-[1200px]">
             {/* En-tête avec les jours */}
@@ -241,6 +254,7 @@ export function GanttView({ projects, tasks, onProjectClick }: GanttViewProps) {
                   dateRange.days.map((day, index) => (
                     <div
                       key={index}
+                      data-today={isToday(day) ? 'true' : undefined}
                       className={`flex-1 min-w-8 p-1 text-center border-r border-blue-400/10 ${
                         isToday(day) ? 'bg-amber-500/20' : ''
                       } ${day.getDay() === 0 || day.getDay() === 6 ? 'bg-blue-900/30' : ''}`}
