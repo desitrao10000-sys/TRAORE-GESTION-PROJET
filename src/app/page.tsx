@@ -84,8 +84,8 @@ export default function Home() {
     }
   }, [hydrated, setUser])
 
-  // Fetch all data function
-  const fetchData = useCallback(async (showLoading = true) => {
+  // Fetch all data function with retry mechanism
+  const fetchData = useCallback(async (showLoading = true, retryCount = 0) => {
     if (!isAuthenticated) return
     
     try {
@@ -122,8 +122,14 @@ export default function Home() {
       
     } catch (error) {
       console.error('Error fetching data:', error)
+      // Retry up to 3 times with 1 second delay
+      if (retryCount < 3) {
+        console.log(`Retrying fetch... (${retryCount + 1}/3)`)
+        setTimeout(() => fetchData(showLoading, retryCount + 1), 1000)
+        return
+      }
     } finally {
-      if (showLoading) setLoading(false)
+      if (showLoading || retryCount >= 2) setLoading(false)
     }
   }, [selectedProjectId, isAuthenticated])
 

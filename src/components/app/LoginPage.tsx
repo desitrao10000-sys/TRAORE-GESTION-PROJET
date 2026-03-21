@@ -26,7 +26,7 @@ export function LoginPage({ onLogin }: LoginPageProps) {
 
   // Initialiser l'utilisateur par défaut au premier chargement
   useEffect(() => {
-    const initAuth = async () => {
+    const initAuth = async (retryCount = 0) => {
       try {
         // Vérifier si l'utilisateur est déjà connecté
         const meRes = await fetch('/api/auth/me')
@@ -42,8 +42,16 @@ export function LoginPage({ onLogin }: LoginPageProps) {
         await fetch('/api/auth/init')
       } catch (err) {
         console.error('Init error:', err)
+        // Réessayer jusqu'à 3 fois si le serveur n'est pas prêt
+        if (retryCount < 3) {
+          console.log(`Retrying... (${retryCount + 1}/3)`)
+          setTimeout(() => initAuth(retryCount + 1), 1000)
+          return
+        }
       } finally {
-        setInitializing(false)
+        if (retryCount >= 2 || retryCount === 0) {
+          setInitializing(false)
+        }
       }
     }
 
