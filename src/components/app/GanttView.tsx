@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useRef, useEffect } from 'react'
 import { Project, Task } from '@/types'
-import { format, differenceInDays, addDays, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, isWithinInterval, parseISO } from 'date-fns'
+import { format, differenceInDays, addDays, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, isWithinInterval, parseISO, isBefore, isAfter } from 'date-fns'
 import { fr } from 'date-fns/locale'
 import { ChevronLeft, ChevronRight, Calendar, List, Filter, CheckCircle2, Clock, AlertCircle, PlayCircle } from 'lucide-react'
 
@@ -117,18 +117,26 @@ export function GanttView({ projects, tasks, onProjectClick }: GanttViewProps) {
   }
 
   // Calculer la position et largeur d'une barre Gantt
-  const getBarStyle = (startDate: Date | null, endDate: Date | null, totalDays: number) => {
-    if (!startDate || !endDate) return null
+  const getBarStyle = (startDate: Date | null | string, endDate: Date | null | string, totalDays: number) => {
+    // Convertir en Date si nécessaire
+    const start = startDate ? (typeof startDate === 'string' ? new Date(startDate) : startDate) : null
+    const end = endDate ? (typeof endDate === 'string' ? new Date(endDate) : endDate) : null
+    
+    if (!start || !end || isNaN(start.getTime()) || isNaN(end.getTime())) {
+      return null
+    }
     
     const viewStart = startOfMonth(currentDate)
     const viewEnd = endOfMonth(currentDate)
     
     // Vérifier si le projet est dans le mois affiché
-    if (endDate < viewStart || startDate > viewEnd) return null
+    if (isBefore(end, viewStart) || isAfter(start, viewEnd)) {
+      return null
+    }
     
     // Ajuster les dates si elles débordent
-    const effectiveStart = startDate < viewStart ? viewStart : startDate
-    const effectiveEnd = endDate > viewEnd ? viewEnd : endDate
+    const effectiveStart = isBefore(start, viewStart) ? viewStart : start
+    const effectiveEnd = isAfter(end, viewEnd) ? viewEnd : end
     
     const startOffset = differenceInDays(effectiveStart, viewStart)
     const duration = differenceInDays(effectiveEnd, effectiveStart) + 1
