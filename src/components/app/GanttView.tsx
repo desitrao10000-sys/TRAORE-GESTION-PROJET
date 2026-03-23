@@ -456,18 +456,17 @@ export function GanttView({ projects, tasks, onProjectClick }: GanttViewProps) {
                                 const taskDuration = taskStartDate && taskEndDate ? differenceInDays(taskEndDate, taskStartDate) + 1 : 0
                                 return (
                                   <div
-                                    className={`absolute top-2 h-6 rounded ${getStatusColor(task.status)} opacity-60 flex items-center justify-between px-2`}
+                                    className={`absolute top-2 h-6 rounded ${getStatusColor(task.status)} flex items-center justify-between px-2`}
                                     style={taskBarStyle}
                                     title={`${task.title}: ${taskStartDate ? format(taskStartDate, 'd MMM yyyy', { locale: fr }) : '?'} - ${taskEndDate ? format(taskEndDate, 'd MMM yyyy', { locale: fr }) : '?'} (${taskDuration} jours)`}
                                   >
-                                    <span className="text-white text-[10px] truncate">
+                                    <span className={`text-[10px] truncate ${getBarTextStyle(task.status)}`}>
                                       {task.title}
                                     </span>
-                                    {taskDuration > 2 && (
-                                      <span className="text-white/70 text-[9px] ml-1">
-                                        {taskStartDate ? format(taskStartDate, 'd') : '?'}-{taskEndDate ? format(taskEndDate, 'd') : '?'}
-                                      </span>
-                                    )}
+                                    {/* Dates sur la barre tâche - très visibles */}
+                                    <span className={`text-[9px] ml-1 bg-black/30 px-1.5 py-0.5 rounded whitespace-nowrap ${getBarTextStyle(task.status)}`}>
+                                      {taskStartDate ? format(taskStartDate, 'd') : '?'}-{taskEndDate ? format(taskEndDate, 'd') : '?'}
+                                    </span>
                                   </div>
                                 )
                               })()}
