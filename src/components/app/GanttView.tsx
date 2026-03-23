@@ -144,10 +144,17 @@ export function GanttView({ projects, tasks, onProjectClick }: GanttViewProps) {
     // S'assurer que les valeurs sont valides
     if (startOffset < 0 || duration <= 0) return null
     
-    const left = Math.max((startOffset / totalDays) * 100, 0)
+    // Calcul précis: chaque jour occupe exactement 100/totalDays %
+    const left = (startOffset / totalDays) * 100
     const width = Math.max((duration / totalDays) * 100, 2)
     
-    return { left: `${left}%`, width: `${width}%` }
+    return { 
+      left: `${left}%`, 
+      width: `${width}%`,
+      // Debug info
+      '--start-day': startOffset + 1,
+      '--duration': duration,
+    } as React.CSSProperties
   }
 
   // Vérifier si un jour est aujourd'hui
@@ -369,14 +376,20 @@ export function GanttView({ projects, tasks, onProjectClick }: GanttViewProps) {
                                 </div>
                               )
                             }
+                            const duration = differenceInDays(projectEndDate!, projectStartDate!) + 1
                             return (
                               <div
-                                className={`absolute top-3 h-10 rounded-lg ${getStatusColor(project.status)} opacity-80 flex items-center px-2 shadow-lg cursor-pointer`}
+                                className={`absolute top-3 h-10 rounded-lg ${getStatusColor(project.status)} opacity-80 flex items-center justify-between px-2 shadow-lg cursor-pointer group`}
                                 style={barStyle}
                                 onClick={() => onProjectClick?.(project.id)}
+                                title={`${project.name}: ${format(projectStartDate!, 'd MMM yyyy', { locale: fr })} - ${format(projectEndDate!, 'd MMM yyyy', { locale: fr })} (${duration} jours)`}
                               >
                                 <span className="text-white text-xs font-semibold truncate">
                                   {project.name}
+                                </span>
+                                {/* Dates affichées dans la barre */}
+                                <span className="text-white/80 text-[10px] ml-2 whitespace-nowrap">
+                                  {format(projectStartDate!, 'd')} - {format(projectEndDate!, 'd')} {format(projectEndDate!, 'MMM', { locale: fr })}
                                 </span>
                               </div>
                             )
@@ -409,15 +422,31 @@ export function GanttView({ projects, tasks, onProjectClick }: GanttViewProps) {
                             <div className="flex-1 relative h-10">
                               {(() => {
                                 const taskBarStyle = getBarStyle(taskStartDate, taskEndDate, dateRange.days.length)
-                                if (!taskBarStyle) return null
+                                if (!taskBarStyle) {
+                                  // Tâche hors de la plage
+                                  return (
+                                    <div className="absolute top-2 h-6 left-0 right-0 flex items-center justify-center">
+                                      <span className="text-[10px] text-gray-500 italic">
+                                        {taskStartDate ? format(taskStartDate, 'd MMM') : '?'} - {taskEndDate ? format(taskEndDate, 'd MMM') : '?'}
+                                      </span>
+                                    </div>
+                                  )
+                                }
+                                const taskDuration = taskStartDate && taskEndDate ? differenceInDays(taskEndDate, taskStartDate) + 1 : 0
                                 return (
                                   <div
-                                    className={`absolute top-2 h-6 rounded ${getStatusColor(task.status)} opacity-60 flex items-center px-2`}
+                                    className={`absolute top-2 h-6 rounded ${getStatusColor(task.status)} opacity-60 flex items-center justify-between px-2`}
                                     style={taskBarStyle}
+                                    title={`${task.title}: ${taskStartDate ? format(taskStartDate, 'd MMM yyyy', { locale: fr }) : '?'} - ${taskEndDate ? format(taskEndDate, 'd MMM yyyy', { locale: fr }) : '?'} (${taskDuration} jours)`}
                                   >
-                                    <span className="text-white text-xs truncate">
+                                    <span className="text-white text-[10px] truncate">
                                       {task.title}
                                     </span>
+                                    {taskDuration > 2 && (
+                                      <span className="text-white/70 text-[9px] ml-1">
+                                        {taskStartDate ? format(taskStartDate, 'd') : '?'}-{taskEndDate ? format(taskEndDate, 'd') : '?'}
+                                      </span>
+                                    )}
                                   </div>
                                 )
                               })()}
