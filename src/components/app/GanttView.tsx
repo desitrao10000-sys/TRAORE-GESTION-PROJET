@@ -245,31 +245,36 @@ export function GanttView({ projects, tasks, onProjectClick }: GanttViewProps) {
               setCurrentDate(today)
               // Défiler vers aujourd'hui après un court délai
               setTimeout(() => {
-                if (ganttContainerRef.current) {
+                // Trouver l'élément scrollable (celui avec overflow-x-auto)
+                const scrollContainer = ganttContainerRef.current?.querySelector('.overflow-x-auto') as HTMLElement
+                if (scrollContainer) {
                   // Calculer la position de scroll pour aujourd'hui
                   const viewStart = startOfMonth(today)
+                  const viewEnd = endOfMonth(today)
+                  const allDays = eachDayOfInterval({ start: viewStart, end: viewEnd })
+                  const totalDays = allDays.length
                   const dayOffset = differenceInDays(today, viewStart)
-                  const totalDays = dateRange.days.length
                   
-                  // Largeur totale de la zone des jours (en pixels)
-                  const containerWidth = ganttContainerRef.current.scrollWidth
-                  const projectColumnWidth = 288 // w-72 = 18rem = 288px
-                  const daysAreaWidth = containerWidth - projectColumnWidth
+                  // Largeur de la zone scrollable
+                  const scrollWidth = scrollContainer.scrollWidth
+                  const clientWidth = scrollContainer.clientWidth
+                  const projectColumnWidth = 288 // w-72 = 288px
                   
-                  // Position d'aujourd'hui en pixels
-                  const todayPosition = projectColumnWidth + (dayOffset / totalDays) * daysAreaWidth
+                  // Position d'aujourd'hui en pourcentage puis en pixels
+                  const todayPercent = (dayOffset / totalDays)
+                  const todayPosition = projectColumnWidth + todayPercent * (scrollWidth - projectColumnWidth)
                   
                   // Scroll pour centrer aujourd'hui
-                  const scrollTo = todayPosition - (ganttContainerRef.current.clientWidth / 2)
+                  const scrollTo = todayPosition - (clientWidth / 2)
                   
-                  ganttContainerRef.current.scrollTo({
+                  scrollContainer.scrollTo({
                     left: Math.max(0, scrollTo),
                     behavior: 'smooth'
                   })
                 }
-              }, 150)
+              }, 200)
             }}
-            className="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-lg text-sm font-semibold transition-all"
+            className="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-lg text-sm font-semibold transition-all shadow-lg"
           >
             Aujourd&apos;hui
           </button>
@@ -279,7 +284,7 @@ export function GanttView({ projects, tasks, onProjectClick }: GanttViewProps) {
       {/* Diagramme de Gantt */}
       <div ref={ganttContainerRef} className="bg-gradient-to-br from-[#1e3a5f] to-[#1a2744] rounded-xl border border-blue-400/30 overflow-hidden shadow-lg shadow-blue-500/10">
         <div className="overflow-x-auto">
-          <div className="min-w-[1200px]">
+          <div className="min-w-[1200px] relative">
             {/* En-tête avec les jours */}
             <div className="flex border-b border-blue-400/20 bg-gradient-to-r from-[#2d4a6f] to-[#1e3a5f]">
               {/* Colonne projet/tâche */}
@@ -326,21 +331,38 @@ export function GanttView({ projects, tasks, onProjectClick }: GanttViewProps) {
               </div>
             </div>
 
-            {/* Ligne aujourd'hui */}
-            <div className="relative">
-              {isToday(startOfMonth(currentDate)) || isWithinInterval(new Date(), { start: startOfMonth(currentDate), end: endOfMonth(currentDate) }) ? (
-                <div
-                  className="absolute top-0 bottom-0 w-0.5 bg-amber-500 z-20"
-                  style={{
-                    left: `calc(288px + ${((differenceInDays(new Date(), startOfMonth(currentDate)) + 0.5) / dateRange.days.length) * 100}%)`
-                  }}
-                >
-                  <div className="absolute -top-1 left-1/2 -translate-x-1/2 bg-amber-500 text-white text-xs px-2 py-0.5 rounded-full whitespace-nowrap">
-                    Aujourd&apos;hui
+            {/* Ligne aujourd'hui - traversant tout le diagramme */}
+            {(() => {
+              const today = new Date()
+              const isCurrentMonth = isWithinInterval(today, { start: startOfMonth(currentDate), end: endOfMonth(currentDate) })
+              if (!isCurrentMonth) return null
+              
+              const todayOffset = differenceInDays(today, startOfMonth(currentDate))
+              // Position en pourcentage de la zone des jours UNIQUEMENT
+              const todayPercent = (todayOffset / dateRange.days.length) * 100
+              
+              return (
+                <>
+                  {/* Ligne sur la colonne projet */}
+                  <div
+                    className="absolute top-0 bottom-0 w-1 bg-amber-500/30 z-20 pointer-events-none"
+                    style={{ left: '288px', transform: 'translateX(-50%)' }}
+                  />
+                  {/* Ligne principale sur la zone des jours */}
+                  <div
+                    className="absolute top-0 bottom-0 w-1 bg-amber-500 z-20 pointer-events-none"
+                    style={{
+                      left: `${todayPercent}%`,
+                      transform: 'translateX(-50%)'
+                    }}
+                  >
+                    <div className="absolute top-0 left-1/2 -translate-x-1/2 bg-amber-500 text-white text-xs font-bold px-3 py-1 rounded-b-lg whitespace-nowrap shadow-lg z-30" style={{ marginLeft: '288px' }}>
+                      Aujourd&apos;hui ({format(today, 'd MMM', { locale: fr })})
+                    </div>
                   </div>
-                </div>
-              ) : null}
-            </div>
+                </>
+              )
+            })()}
 
             {/* Contenu - Projets et tâches */}
             <div className="divide-y divide-blue-400/10">
