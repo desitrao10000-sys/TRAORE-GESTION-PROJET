@@ -18,7 +18,9 @@ export function GanttView({ projects, tasks, onProjectClick }: GanttViewProps) {
   const [currentDate, setCurrentDate] = useState(new Date())
   const [viewMode, setViewMode] = useState<ViewMode>('month')
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null)
+  const [todayLineLeft, setTodayLineLeft] = useState<number | null>(null)
   const ganttContainerRef = useRef<HTMLDivElement>(null)
+  const todayColumnRef = useRef<HTMLDivElement>(null)
 
   // Calculer la plage de dates à afficher
   const dateRange = useMemo(() => {
@@ -44,6 +46,17 @@ export function GanttView({ projects, tasks, onProjectClick }: GanttViewProps) {
     
     return { days: allDays, weeks }
   }, [currentDate])
+
+  // Calculer la position exacte de la ligne "aujourd'hui" après le rendu
+  useEffect(() => {
+    if (todayColumnRef.current && ganttContainerRef.current) {
+      const containerRect = ganttContainerRef.current.getBoundingClientRect()
+      const todayRect = todayColumnRef.current.getBoundingClientRect()
+      // Position relative au conteneur
+      const left = todayRect.left - containerRect.left + todayRect.width / 2
+      setTodayLineLeft(left)
+    }
+  }, [currentDate, dateRange.days.length])
 
   // Filtrer les données
   const filteredProjects = useMemo(() => {
@@ -344,37 +357,32 @@ export function GanttView({ projects, tasks, onProjectClick }: GanttViewProps) {
               </div>
             </div>
 
-            {/* Ligne aujourd'hui - positionnée exactement comme les barres */}
-            {(() => {
-              const todayPercent = getTodayLinePosition(dateRange.days.length)
-              if (todayPercent === null) return null
-              
-              // Ajouter 0.5 jour pour centrer sur le milieu du jour
-              // Un jour = 100/totalDays %, donc 0.5 jour = 50/totalDays %
-              const halfDayPercent = (0.5 / dateRange.days.length) * 100
-              const centeredPercent = todayPercent + halfDayPercent
-              
-              return (
-                <div className="flex items-stretch absolute top-0 bottom-0 left-0 right-0 pointer-events-none z-20">
-                  {/* Zone vide pour la colonne projet */}
-                  <div className="w-72 min-w-72" />
-                  {/* Zone des jours avec la ligne */}
-                  <div className="flex-1 relative">
-                    <div
-                      className="absolute top-0 bottom-0 w-1 bg-amber-500"
-                      style={{ left: `${centeredPercent}%` }}
-                    >
-                      <div className="absolute top-0 left-1/2 -translate-x-1/2 bg-amber-500 text-white text-xs font-bold px-3 py-1 rounded-b-lg whitespace-nowrap shadow-lg">
-                        Aujourd&apos;hui ({format(new Date(), 'd MMM', { locale: fr })})
-                      </div>
+            {/* Contenu - Projets et tâches */}
+            <div className="divide-y divide-blue-400/10 relative">
+              {/* Ligne aujourd'hui - dans le même conteneur que les barres */}
+              {(() => {
+                const today = new Date()
+                const isCurrentMonth = isWithinInterval(today, { start: startOfMonth(currentDate), end: endOfMonth(currentDate) })
+                if (!isCurrentMonth) return null
+                
+                // Trouver l'index du jour aujourd'hui dans le mois
+                const todayDate = today.getDate()
+                const totalDays = dateRange.days.length
+                
+                // Position en pourcentage: (jour - 1) / total * 100 + demi-jour pour centrer
+                const leftPercent = ((todayDate - 1 + 0.5) / totalDays) * 100
+                
+                return (
+                  <div
+                    className="absolute top-0 bottom-0 w-1 bg-amber-500 z-20 pointer-events-none"
+                    style={{ left: `calc(288px + ${leftPercent}%)` }}
+                  >
+                    <div className="absolute top-0 left-1/2 -translate-x-1/2 bg-amber-500 text-white text-xs font-bold px-3 py-1 rounded-b-lg whitespace-nowrap shadow-lg">
+                      Aujourd&apos;hui ({format(today, 'd MMM', { locale: fr })})
                     </div>
                   </div>
-                </div>
-              )
-            })()}
-
-            {/* Contenu - Projets et tâches */}
-            <div className="divide-y divide-blue-400/10">
+                )
+              })()}
               {filteredProjects.length === 0 ? (
                 <div className="p-8 text-center">
                   <Calendar className="w-12 h-12 text-gray-500 mx-auto mb-3" />
