@@ -331,36 +331,32 @@ export function GanttView({ projects, tasks, onProjectClick }: GanttViewProps) {
               </div>
             </div>
 
-            {/* Ligne aujourd'hui - traversant tout le diagramme */}
+            {/* Ligne aujourd'hui - positionnée dans la zone des jours */}
             {(() => {
               const today = new Date()
               const isCurrentMonth = isWithinInterval(today, { start: startOfMonth(currentDate), end: endOfMonth(currentDate) })
               if (!isCurrentMonth) return null
               
               const todayOffset = differenceInDays(today, startOfMonth(currentDate))
-              // Position en pourcentage de la zone des jours UNIQUEMENT
-              const todayPercent = (todayOffset / dateRange.days.length) * 100
+              // Même calcul que pour les barres: position relative à la zone des jours
+              const leftPercent = (todayOffset / dateRange.days.length) * 100
               
               return (
-                <>
-                  {/* Ligne sur la colonne projet */}
-                  <div
-                    className="absolute top-0 bottom-0 w-1 bg-amber-500/30 z-20 pointer-events-none"
-                    style={{ left: '288px', transform: 'translateX(-50%)' }}
-                  />
-                  {/* Ligne principale sur la zone des jours */}
-                  <div
-                    className="absolute top-0 bottom-0 w-1 bg-amber-500 z-20 pointer-events-none"
-                    style={{
-                      left: `${todayPercent}%`,
-                      transform: 'translateX(-50%)'
-                    }}
-                  >
-                    <div className="absolute top-0 left-1/2 -translate-x-1/2 bg-amber-500 text-white text-xs font-bold px-3 py-1 rounded-b-lg whitespace-nowrap shadow-lg z-30" style={{ marginLeft: '288px' }}>
-                      Aujourd&apos;hui ({format(today, 'd MMM', { locale: fr })})
+                <div className="flex items-stretch absolute top-0 bottom-0 left-0 right-0 pointer-events-none z-20">
+                  {/* Zone vide pour la colonne projet */}
+                  <div className="w-72 min-w-72" />
+                  {/* Zone des jours avec la ligne */}
+                  <div className="flex-1 relative">
+                    <div
+                      className="absolute top-0 bottom-0 w-1 bg-amber-500"
+                      style={{ left: `${leftPercent}%`, transform: 'translateX(-50%)' }}
+                    >
+                      <div className="absolute top-0 left-1/2 -translate-x-1/2 bg-amber-500 text-white text-xs font-bold px-3 py-1 rounded-b-lg whitespace-nowrap shadow-lg">
+                        Aujourd&apos;hui ({format(today, 'd MMM', { locale: fr })})
+                      </div>
                     </div>
                   </div>
-                </>
+                </div>
               )
             })()}
 
