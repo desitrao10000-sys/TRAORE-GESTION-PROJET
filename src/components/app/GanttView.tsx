@@ -100,6 +100,11 @@ export function GanttView({ projects, tasks, onProjectClick }: GanttViewProps) {
     }
   }
 
+  // Style du texte sur les barres Gantt (très visible)
+  const getBarTextStyle = (status: string) => {
+    return 'text-white font-bold drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)]'
+  }
+
   // Icône selon le statut
   const getStatusIcon = (status: string) => {
     switch (status) {
@@ -241,12 +246,28 @@ export function GanttView({ projects, tasks, onProjectClick }: GanttViewProps) {
               // Défiler vers aujourd'hui après un court délai
               setTimeout(() => {
                 if (ganttContainerRef.current) {
-                  const todayElement = ganttContainerRef.current.querySelector('[data-today="true"]')
-                  if (todayElement) {
-                    todayElement.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' })
-                  }
+                  // Calculer la position de scroll pour aujourd'hui
+                  const viewStart = startOfMonth(today)
+                  const dayOffset = differenceInDays(today, viewStart)
+                  const totalDays = dateRange.days.length
+                  
+                  // Largeur totale de la zone des jours (en pixels)
+                  const containerWidth = ganttContainerRef.current.scrollWidth
+                  const projectColumnWidth = 288 // w-72 = 18rem = 288px
+                  const daysAreaWidth = containerWidth - projectColumnWidth
+                  
+                  // Position d'aujourd'hui en pixels
+                  const todayPosition = projectColumnWidth + (dayOffset / totalDays) * daysAreaWidth
+                  
+                  // Scroll pour centrer aujourd'hui
+                  const scrollTo = todayPosition - (ganttContainerRef.current.clientWidth / 2)
+                  
+                  ganttContainerRef.current.scrollTo({
+                    left: Math.max(0, scrollTo),
+                    behavior: 'smooth'
+                  })
                 }
-              }, 100)
+              }, 150)
             }}
             className="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-lg text-sm font-semibold transition-all"
           >
@@ -379,16 +400,16 @@ export function GanttView({ projects, tasks, onProjectClick }: GanttViewProps) {
                             const duration = differenceInDays(projectEndDate!, projectStartDate!) + 1
                             return (
                               <div
-                                className={`absolute top-3 h-10 rounded-lg ${getStatusColor(project.status)} opacity-80 flex items-center justify-between px-2 shadow-lg cursor-pointer group`}
+                                className={`absolute top-3 h-10 rounded-lg ${getStatusColor(project.status)} flex items-center justify-between px-3 shadow-lg cursor-pointer group`}
                                 style={barStyle}
                                 onClick={() => onProjectClick?.(project.id)}
                                 title={`${project.name}: ${format(projectStartDate!, 'd MMM yyyy', { locale: fr })} - ${format(projectEndDate!, 'd MMM yyyy', { locale: fr })} (${duration} jours)`}
                               >
-                                <span className="text-white text-xs font-semibold truncate">
+                                <span className={`text-xs truncate ${getBarTextStyle(project.status)}`}>
                                   {project.name}
                                 </span>
-                                {/* Dates affichées dans la barre */}
-                                <span className="text-white/80 text-[10px] ml-2 whitespace-nowrap">
+                                {/* Dates affichées dans la barre - très visibles */}
+                                <span className={`text-[11px] ml-2 whitespace-nowrap bg-black/30 px-2 py-0.5 rounded ${getBarTextStyle(project.status)}`}>
                                   {format(projectStartDate!, 'd')} - {format(projectEndDate!, 'd')} {format(projectEndDate!, 'MMM', { locale: fr })}
                                 </span>
                               </div>
