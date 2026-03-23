@@ -172,22 +172,6 @@ export function GanttView({ projects, tasks, onProjectClick }: GanttViewProps) {
     } as React.CSSProperties
   }
 
-  // Calculer la position de la ligne "Aujourd'hui" (même logique que les barres)
-  const getTodayLinePosition = (totalDays: number) => {
-    const today = new Date()
-    const viewStart = startOfMonth(currentDate)
-    
-    // Vérifier si aujourd'hui est dans le mois affiché
-    if (!isWithinInterval(today, { start: startOfMonth(currentDate), end: endOfMonth(currentDate) })) {
-      return null
-    }
-    
-    const dayOffset = differenceInDays(today, viewStart)
-    const leftPercent = (dayOffset / totalDays) * 100
-    
-    return leftPercent
-  }
-
   // Vérifier si un jour est aujourd'hui
   const isToday = (day: Date) => isSameDay(day, new Date())
 
@@ -327,6 +311,7 @@ export function GanttView({ projects, tasks, onProjectClick }: GanttViewProps) {
                   dateRange.days.map((day, index) => (
                     <div
                       key={index}
+                      ref={isToday(day) ? todayColumnRef : undefined}
                       data-today={isToday(day) ? 'true' : undefined}
                       className={`flex-1 min-w-8 p-1 text-center border-r border-blue-400/10 ${
                         isToday(day) ? 'bg-amber-500/20' : ''
@@ -359,30 +344,17 @@ export function GanttView({ projects, tasks, onProjectClick }: GanttViewProps) {
 
             {/* Contenu - Projets et tâches */}
             <div className="divide-y divide-blue-400/10 relative">
-              {/* Ligne aujourd'hui - dans le même conteneur que les barres */}
-              {(() => {
-                const today = new Date()
-                const isCurrentMonth = isWithinInterval(today, { start: startOfMonth(currentDate), end: endOfMonth(currentDate) })
-                if (!isCurrentMonth) return null
-                
-                // Trouver l'index du jour aujourd'hui dans le mois
-                const todayDate = today.getDate()
-                const totalDays = dateRange.days.length
-                
-                // Position en pourcentage: (jour - 1) / total * 100 + demi-jour pour centrer
-                const leftPercent = ((todayDate - 1 + 0.5) / totalDays) * 100
-                
-                return (
-                  <div
-                    className="absolute top-0 bottom-0 w-1 bg-amber-500 z-20 pointer-events-none"
-                    style={{ left: `calc(288px + ${leftPercent}%)` }}
-                  >
-                    <div className="absolute top-0 left-1/2 -translate-x-1/2 bg-amber-500 text-white text-xs font-bold px-3 py-1 rounded-b-lg whitespace-nowrap shadow-lg">
-                      Aujourd&apos;hui ({format(today, 'd MMM', { locale: fr })})
-                    </div>
+              {/* Ligne aujourd'hui - position calculée dynamiquement */}
+              {todayLineLeft !== null && (
+                <div
+                  className="absolute top-0 bottom-0 w-1 bg-amber-500 z-20 pointer-events-none"
+                  style={{ left: `${todayLineLeft}px` }}
+                >
+                  <div className="absolute top-0 left-1/2 -translate-x-1/2 bg-amber-500 text-white text-xs font-bold px-3 py-1 rounded-b-lg whitespace-nowrap shadow-lg">
+                    Aujourd&apos;hui ({format(new Date(), 'd MMM', { locale: fr })})
                   </div>
-                )
-              })()}
+                </div>
+              )}
               {filteredProjects.length === 0 ? (
                 <div className="p-8 text-center">
                   <Calendar className="w-12 h-12 text-gray-500 mx-auto mb-3" />
