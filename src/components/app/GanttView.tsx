@@ -156,10 +156,23 @@ export function GanttView({ projects, tasks, onProjectClick }: GanttViewProps) {
     return { 
       left: `${left}%`, 
       width: `${width}%`,
-      // Debug info
-      '--start-day': startOffset + 1,
-      '--duration': duration,
     } as React.CSSProperties
+  }
+
+  // Calculer la position de la ligne "Aujourd'hui" (même logique que les barres)
+  const getTodayLinePosition = (totalDays: number) => {
+    const today = new Date()
+    const viewStart = startOfMonth(currentDate)
+    
+    // Vérifier si aujourd'hui est dans le mois affiché
+    if (!isWithinInterval(today, { start: startOfMonth(currentDate), end: endOfMonth(currentDate) })) {
+      return null
+    }
+    
+    const dayOffset = differenceInDays(today, viewStart)
+    const leftPercent = (dayOffset / totalDays) * 100
+    
+    return leftPercent
   }
 
   // Vérifier si un jour est aujourd'hui
@@ -331,15 +344,15 @@ export function GanttView({ projects, tasks, onProjectClick }: GanttViewProps) {
               </div>
             </div>
 
-            {/* Ligne aujourd'hui - positionnée dans la zone des jours */}
+            {/* Ligne aujourd'hui - positionnée exactement comme les barres */}
             {(() => {
-              const today = new Date()
-              const isCurrentMonth = isWithinInterval(today, { start: startOfMonth(currentDate), end: endOfMonth(currentDate) })
-              if (!isCurrentMonth) return null
+              const todayPercent = getTodayLinePosition(dateRange.days.length)
+              if (todayPercent === null) return null
               
-              const todayOffset = differenceInDays(today, startOfMonth(currentDate))
-              // Même calcul que pour les barres: position relative à la zone des jours
-              const leftPercent = (todayOffset / dateRange.days.length) * 100
+              // Ajouter 0.5 jour pour centrer sur le milieu du jour
+              // Un jour = 100/totalDays %, donc 0.5 jour = 50/totalDays %
+              const halfDayPercent = (0.5 / dateRange.days.length) * 100
+              const centeredPercent = todayPercent + halfDayPercent
               
               return (
                 <div className="flex items-stretch absolute top-0 bottom-0 left-0 right-0 pointer-events-none z-20">
@@ -349,10 +362,10 @@ export function GanttView({ projects, tasks, onProjectClick }: GanttViewProps) {
                   <div className="flex-1 relative">
                     <div
                       className="absolute top-0 bottom-0 w-1 bg-amber-500"
-                      style={{ left: `${leftPercent}%`, transform: 'translateX(-50%)' }}
+                      style={{ left: `${centeredPercent}%` }}
                     >
                       <div className="absolute top-0 left-1/2 -translate-x-1/2 bg-amber-500 text-white text-xs font-bold px-3 py-1 rounded-b-lg whitespace-nowrap shadow-lg">
-                        Aujourd&apos;hui ({format(today, 'd MMM', { locale: fr })})
+                        Aujourd&apos;hui ({format(new Date(), 'd MMM', { locale: fr })})
                       </div>
                     </div>
                   </div>
