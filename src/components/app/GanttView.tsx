@@ -357,17 +357,30 @@ export function GanttView({ projects, tasks, onProjectClick }: GanttViewProps) {
                         
                         {/* Barre Gantt projet */}
                         <div className="flex-1 relative h-16">
-                          {projectStartDate && projectEndDate && (
-                            <div
-                              className={`absolute top-3 h-10 rounded-lg ${getStatusColor(project.status)} opacity-80 flex items-center px-2 shadow-lg cursor-pointer`}
-                              style={getBarStyle(projectStartDate, projectEndDate, dateRange.days.length)}
-                              onClick={() => onProjectClick?.(project.id)}
-                            >
-                              <span className="text-white text-xs font-semibold truncate">
-                                {project.name}
-                              </span>
-                            </div>
-                          )}
+                          {(() => {
+                            const barStyle = getBarStyle(projectStartDate, projectEndDate, dateRange.days.length)
+                            if (!barStyle) {
+                              // Projet hors de la plage de dates affichée
+                              return (
+                                <div className="absolute top-3 h-10 left-0 right-0 flex items-center justify-center">
+                                  <span className="text-xs text-gray-500 italic">
+                                    {projectStartDate ? `(${format(projectStartDate, 'd MMM yyyy', { locale: fr })} - ${projectEndDate ? format(projectEndDate, 'd MMM yyyy', { locale: fr }) : '?'})` : 'Dates non définies'}
+                                  </span>
+                                </div>
+                              )
+                            }
+                            return (
+                              <div
+                                className={`absolute top-3 h-10 rounded-lg ${getStatusColor(project.status)} opacity-80 flex items-center px-2 shadow-lg cursor-pointer`}
+                                style={barStyle}
+                                onClick={() => onProjectClick?.(project.id)}
+                              >
+                                <span className="text-white text-xs font-semibold truncate">
+                                  {project.name}
+                                </span>
+                              </div>
+                            )
+                          })()}
                         </div>
                       </div>
                       
@@ -394,16 +407,20 @@ export function GanttView({ projects, tasks, onProjectClick }: GanttViewProps) {
                             
                             {/* Barre Gantt tâche */}
                             <div className="flex-1 relative h-10">
-                              {taskStartDate && taskEndDate && (
-                                <div
-                                  className={`absolute top-2 h-6 rounded ${getStatusColor(task.status)} opacity-60 flex items-center px-2`}
-                                  style={getBarStyle(taskStartDate, taskEndDate, dateRange.days.length)}
-                                >
-                                  <span className="text-white text-xs truncate">
-                                    {task.title}
-                                  </span>
-                                </div>
-                              )}
+                              {(() => {
+                                const taskBarStyle = getBarStyle(taskStartDate, taskEndDate, dateRange.days.length)
+                                if (!taskBarStyle) return null
+                                return (
+                                  <div
+                                    className={`absolute top-2 h-6 rounded ${getStatusColor(task.status)} opacity-60 flex items-center px-2`}
+                                    style={taskBarStyle}
+                                  >
+                                    <span className="text-white text-xs truncate">
+                                      {task.title}
+                                    </span>
+                                  </div>
+                                )
+                              })()}
                             </div>
                           </div>
                         )
