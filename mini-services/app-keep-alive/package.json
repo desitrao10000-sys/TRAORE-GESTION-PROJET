@@ -1,0 +1,7 @@
+{
+  "name": "app-keep-alive",
+  "version": "1.0.0",
+  "scripts": {
+    "dev": "bun run index.ts"
+  }
+}

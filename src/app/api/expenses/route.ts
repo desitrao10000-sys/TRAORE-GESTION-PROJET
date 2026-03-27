@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { db } from '@/lib/db'
+import { nanoid } from 'nanoid'
 
 // GET /api/expenses - Récupérer toutes les dépenses
 export async function GET(request: Request) {
@@ -51,12 +52,14 @@ export async function POST(request: Request) {
     // Créer la dépense
     const expense = await db.expense.create({
       data: {
+        id: nanoid(),
         description,
         amount: amountFloat,
         category: category || 'Autres',
         projectId,
         taskId: taskId || null,
-        date: date ? new Date(date) : new Date()
+        date: date ? new Date(date) : new Date(),
+        updatedAt: new Date()
       }
     })
 
