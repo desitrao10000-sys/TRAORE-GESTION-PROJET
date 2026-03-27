@@ -1,0 +1,1761 @@
+'use client'
+
+import { useState, useMemo, useEffect } from 'react'
+import { format, isToday, isTomorrow, isPast, addDays } from 'date-fns'
+import { fr } from 'date-fns/locale'
+import { 
+  CheckCircle2, Clock, AlertTriangle, Calendar,
+  ChevronDown, Play, ListTodo, Check, X, Loader2, DollarSign, Filter, User, Wallet, Plus, Target, FileText, ClockIcon, Pencil, Trash2
+} from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Badge } from '@/components/ui/badge'
+import { Card, CardContent } from '@/components/ui/card'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
+import { Task, Project, Risk } from '@/types'
+import { useToast } from '@/hooks/use-toast'
+import { CommentSection } from './CommentSection'
+
+interface Expense {
+  id: string
+  description: string
+  amount: number
+  category: string
+  date: string
+  taskId?: string | null
+}
+
+interface TodoItem {
+  id: string
+  projectId: string
+  projectName: string
+  taskId: string
+  taskTitle: string
+  taskDescription?: string | null
+  status: 'En cours' | 'En retard' | 'À venir' | 'Terminé'
+  startDate?: Date | null
+  deadline?: Date | null
+  responsibleName?: string | null
+  constraints?: string | null
+  solution?: string | null
+  riskId?: string
+  riskTitle?: string
+  riskSeverity?: string
+  budget: number
+  budgetSpent: number
+  taskExpenses: Expense[]
+}
+
+interface DailyTodoListProps {
+  tasks: Task[]
+  projects: Project[]
+  risks: Risk[]
+  onTaskUpdate?: () => void
+}
+
+type DateFilter = 'en-retard' | 'a-venir' | 'termine' | 'en-cours'
+
+export function DailyTodoList({ tasks, projects, risks, onTaskUpdate }: DailyTodoListProps) {
+  const { toast } = useToast()
+  
+  // States
+  const [filterProject, setFilterProject] = useState<string>('all')
+  const [filterDates, setFilterDates] = useState<DateFilter[]>([])
+  const [expandedTodo, setExpandedTodo] = useState<string | null>(null)
+  const [expenseModal, setExpenseModal] = useState<TodoItem | null>(null)
+  const [expenseAmount, setExpenseAmount] = useState('')
+  const [expenseCategory, setExpenseCategory] = useState('Matériaux')
+  const [expenseNote, setExpenseNote] = useState('')
+  const [saving, setSaving] = useState(false)
+  const [updatingTaskId, setUpdatingTaskId] = useState<string | null>(null)
+  const [projectExpenses, setProjectExpenses] = useState<Expense[]>([])
+  
+  // Budget modal state
+  const [budgetModal, setBudgetModal] = useState<TodoItem | null>(null)
+  const [budgetAmount, setBudgetAmount] = useState('')
+  
+  // Edit expense modal state
+  const [editExpenseModal, setEditExpenseModal] = useState<Expense | null>(null)
+  const [editExpenseAmount, setEditExpenseAmount] = useState('')
+  const [editExpenseCategory, setEditExpenseCategory] = useState('')
+  const [editExpenseNote, setEditExpenseNote] = useState('')
+  
+  // Reprogramming dialog state
+  const [reprogramDialog, setReprogramDialog] = useState<{
+    open: boolean
+    todo: TodoItem | null
+    newDate: string
+    newStatus: string
+    reason: string
+  }>({
+    open: false,
+    todo: null,
+    newDate: '',
+    newStatus: '',
+    reason: ''
+  })
+
+  // Create task modal state
+  const [createTaskModal, setCreateTaskModal] = useState(false)
+  const [deleteTaskModal, setDeleteTaskModal] = useState<TodoItem | null>(null)
+  const [newTask, setNewTask] = useState({
+    title: '',
+    description: '',
+    objectives: '',
+    constraints: '',
+    solutionProposed: '',
+    projectId: '',
+    status: 'À faire',
+    priority: 'Moyenne',
+    dueDate: '',
+    startDate: '',
+    assigneeName: '',
+    budget: ''
+  })
+
+  // Convert tasks to todo items (include all tasks including completed)
+  const todos = useMemo(() => {
+    const projectMap = new Map(projects.map(p => [p.id, p.name]))
+    const riskMap = new Map<string, Risk[]>()
+    
+    // Group risks by project
+    risks.forEach(risk => {
+      if (!riskMap.has(risk.projectId)) {
+        riskMap.set(risk.projectId, [])
+      }
+      riskMap.get(risk.projectId)!.push(risk)
+    })
+
+    return tasks
+      .filter(task => task.status !== 'Annulé')
+      .map(task => {
+        const projectRisks = riskMap.get(task.projectId) || []
+        const activeRisk = projectRisks.find(r => r.status !== 'Résolu' && r.status !== 'Accepté')
+        
+        // Determine todo status based on dates
+        // Terminé: task.status === 'Validé'
+        // En cours: startDate <= aujourd'hui <= dueDate (dans la période d'exécution)
+        // À venir: aujourd'hui < startDate (pas encore commencé)
+        // En retard: aujourd'hui > dueDate (date limite dépassée)
+        
+        let todoStatus: 'En cours' | 'En retard' | 'À venir' | 'Terminé' = 'À venir'
+        const today = new Date()
+        today.setHours(0, 0, 0, 0) // Reset time for accurate date comparison
+        
+        const startDate = task.startedAt ? new Date(task.startedAt) : null
+        const dueDate = task.dueDate ? new Date(task.dueDate) : null
+        
+        if (startDate) {
+          startDate.setHours(0, 0, 0, 0)
+        }
+        if (dueDate) {
+          dueDate.setHours(0, 0, 0, 0)
+        }
+        
+        if (task.status === 'Validé') {
+          // Tâche terminée
+          todoStatus = 'Terminé'
+        } else if (dueDate && isPast(dueDate) && !isToday(dueDate)) {
+          // Date limite dépassée (pas aujourd'hui)
+          todoStatus = 'En retard'
+        } else if (startDate && (isPast(startDate) || isToday(startDate))) {
+          // Date de début atteinte ou dépassée, et pas en retard
+          // La tâche est dans sa période d'exécution
+          todoStatus = 'En cours'
+        } else {
+          // Date de début pas encore arrivée
+          todoStatus = 'À venir'
+        }
+        
+        return {
+          id: `todo-${task.id}`,
+          projectId: task.projectId,
+          projectName: projectMap.get(task.projectId) || 'Sans projet',
+          taskId: task.id,
+          taskTitle: task.title,
+          taskDescription: task.description,
+          status: todoStatus,
+          startDate: task.startedAt,
+          deadline: task.dueDate,
+          responsibleName: task.assigneeName,
+          constraints: task.constraints,
+          solution: task.solutionProposed,
+          riskId: activeRisk?.id,
+          riskTitle: activeRisk?.title,
+          riskSeverity: activeRisk?.severity,
+          budget: task.budget || 0,
+          budgetSpent: task.budgetSpent || 0
+        } as TodoItem
+      })
+  }, [tasks, projects, risks])
+
+  // Update task status - now with 4 options for reclassifying
+  const handleUpdateStatus = async (todo: TodoItem, newStatus: 'En cours' | 'En retard' | 'À venir' | 'Terminé') => {
+    setUpdatingTaskId(todo.taskId)
+    try {
+      // Map todo status back to task status
+      let taskStatus = 'À faire'
+      let newDeadline = todo.deadline
+      
+      switch (newStatus) {
+        case 'Terminé':
+          taskStatus = 'Validé'
+          break
+        case 'En cours':
+          taskStatus = 'En cours'
+          break
+        case 'En retard':
+          taskStatus = 'En retard'
+          // If marking as late and no deadline, set one in the past
+          if (!todo.deadline) {
+            newDeadline = addDays(new Date(), -1)
+          }
+          break
+        case 'À venir':
+          taskStatus = 'À faire'
+          // If marking as "À venir" and no deadline, set one in the future
+          if (!todo.deadline) {
+            newDeadline = addDays(new Date(), 7)
+          }
+          break
+      }
+      
+      const res = await fetch('/api/tasks', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          id: todo.taskId, 
+          status: taskStatus,
+          dueDate: newDeadline ? format(new Date(newDeadline), 'yyyy-MM-dd') : undefined
+        })
+      })
+      const data = await res.json()
+      if (data.success) {
+        toast({ 
+          title: newStatus === 'Terminé' ? '✅ Tâche terminée !' : 
+                newStatus === 'En cours' ? '▶ Tâche en cours' :
+                newStatus === 'En retard' ? '⚠️ Tâche marquée en retard' : '📅 Tâche reprogrammée'
+        })
+        if (onTaskUpdate) onTaskUpdate()
+      } else {
+        toast({ title: 'Erreur: ' + (data.error || 'Impossible de mettre à jour'), variant: 'destructive' })
+      }
+    } catch (error) {
+      console.error('Error updating task:', error)
+      toast({ title: 'Erreur de mise à jour', variant: 'destructive' })
+    } finally {
+      setUpdatingTaskId(null)
+    }
+  }
+
+  // Handle reprogramming
+  const handleReprogram = async () => {
+    if (!reprogramDialog.todo || !reprogramDialog.newDate) {
+      toast({ title: 'Veuillez sélectionner une nouvelle date', variant: 'destructive' })
+      return
+    }
+
+    setSaving(true)
+    try {
+      const res = await fetch('/api/tasks', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: reprogramDialog.todo.taskId,
+          dueDate: reprogramDialog.newDate,
+          status: reprogramDialog.newStatus === 'Terminé' ? 'Validé' :
+                  reprogramDialog.newStatus === 'En cours' ? 'En cours' : 
+                  reprogramDialog.newStatus === 'En retard' ? 'En retard' : 'À faire'
+        })
+      })
+      const data = await res.json()
+      if (data.success) {
+        toast({ title: '📅 Tâche reprogrammée avec succès' })
+        setReprogramDialog({ open: false, todo: null, newDate: '', newStatus: '', reason: '' })
+        if (onTaskUpdate) onTaskUpdate()
+      } else {
+        throw new Error(data.error)
+      }
+    } catch (error) {
+      console.error('Error reprogramming:', error)
+      toast({ title: 'Erreur lors de la reprogrammation', variant: 'destructive' })
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  // Add expense
+  const handleAddExpense = async () => {
+    if (!expenseModal || !expenseAmount) {
+      toast({ title: 'Veuillez entrer un montant', variant: 'destructive' })
+      return
+    }
+    
+    setSaving(true)
+    try {
+      const res = await fetch('/api/expenses', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          description: expenseNote || `Dépense pour: ${expenseModal.taskTitle}`,
+          amount: parseFloat(expenseAmount),
+          category: expenseCategory,
+          projectId: expenseModal.projectId,
+          taskId: expenseModal.taskId  // Lier la dépense à la tâche
+        })
+      })
+      const data = await res.json()
+      if (data.success) {
+        toast({ title: '💰 Dépense enregistrée', description: `${parseFloat(expenseAmount).toLocaleString()} FCFA` })
+        setExpenseModal(null)
+        setExpenseAmount('')
+        setExpenseNote('')
+        if (onTaskUpdate) onTaskUpdate()
+      } else {
+        throw new Error(data.error)
+      }
+    } catch (error) {
+      console.error('Error adding expense:', error)
+      toast({ title: 'Erreur lors de l\'enregistrement de la dépense', variant: 'destructive' })
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  // Add budget to task
+  const handleAddBudget = async () => {
+    if (!budgetModal || !budgetAmount) {
+      toast({ title: 'Veuillez entrer un montant', variant: 'destructive' })
+      return
+    }
+    
+    setSaving(true)
+    try {
+      const res = await fetch('/api/tasks', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: budgetModal.taskId,
+          budget: parseFloat(budgetAmount)
+        })
+      })
+      const data = await res.json()
+      if (data.success) {
+        toast({ title: '💰 Budget enregistré', description: `${parseFloat(budgetAmount).toLocaleString()} FCFA` })
+        setBudgetModal(null)
+        setBudgetAmount('')
+        if (onTaskUpdate) onTaskUpdate()
+      } else {
+        throw new Error(data.error)
+      }
+    } catch (error) {
+      console.error('Error adding budget:', error)
+      toast({ title: 'Erreur lors de l\'enregistrement du budget', variant: 'destructive' })
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  // Edit expense
+  const handleEditExpense = async () => {
+    if (!editExpenseModal || !editExpenseAmount) {
+      toast({ title: 'Veuillez entrer un montant', variant: 'destructive' })
+      return
+    }
+    
+    setSaving(true)
+    try {
+      const res = await fetch('/api/expenses', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: editExpenseModal.id,
+          description: editExpenseNote || editExpenseModal.description,
+          amount: parseFloat(editExpenseAmount),
+          category: editExpenseCategory
+        })
+      })
+      const data = await res.json()
+      if (data.success) {
+        toast({ title: '✏️ Dépense modifiée', description: `${parseFloat(editExpenseAmount).toLocaleString()} FCFA` })
+        setEditExpenseModal(null)
+        setEditExpenseAmount('')
+        setEditExpenseNote('')
+        if (onTaskUpdate) onTaskUpdate()
+      } else {
+        throw new Error(data.error)
+      }
+    } catch (error) {
+      console.error('Error editing expense:', error)
+      toast({ title: 'Erreur lors de la modification de la dépense', variant: 'destructive' })
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  // Delete expense
+  const handleDeleteExpense = async (expense: Expense) => {
+    if (!confirm(`Supprimer cette dépense de ${expense.amount.toLocaleString()} FCFA ?`)) {
+      return
+    }
+    
+    try {
+      const res = await fetch(`/api/expenses?id=${expense.id}`, {
+        method: 'DELETE'
+      })
+      const data = await res.json()
+      if (data.success) {
+        toast({ title: '🗑️ Dépense supprimée' })
+        if (onTaskUpdate) onTaskUpdate()
+      } else {
+        throw new Error(data.error)
+      }
+    } catch (error) {
+      console.error('Error deleting expense:', error)
+      toast({ title: 'Erreur lors de la suppression', variant: 'destructive' })
+    }
+  }
+
+  // Delete task completely
+  const handleDeleteTask = (todo: TodoItem) => {
+    setDeleteTaskModal(todo)
+  }
+
+  // Confirm delete task
+  const confirmDeleteTask = async () => {
+    if (!deleteTaskModal) return
+    
+    setUpdatingTaskId(deleteTaskModal.taskId)
+    try {
+      const res = await fetch(`/api/tasks?id=${deleteTaskModal.taskId}`, {
+        method: 'DELETE'
+      })
+      const data = await res.json()
+      if (data.success) {
+        toast({ title: '🗑️ Tâche supprimée définitivement' })
+        setDeleteTaskModal(null)
+        if (onTaskUpdate) onTaskUpdate()
+      } else {
+        throw new Error(data.error)
+      }
+    } catch (error) {
+      console.error('Error deleting task:', error)
+      toast({ title: 'Erreur lors de la suppression de la tâche', variant: 'destructive' })
+    } finally {
+      setUpdatingTaskId(null)
+    }
+  }
+
+  // Create new task
+  const handleCreateTask = async () => {
+    if (!newTask.title || !newTask.title.trim()) {
+      toast({ title: 'Veuillez entrer un titre pour la tâche', variant: 'destructive' })
+      return
+    }
+    
+    if (!newTask.projectId) {
+      toast({ title: 'Veuillez sélectionner un projet', variant: 'destructive' })
+      return
+    }
+
+    setSaving(true)
+    console.log('Création de tâche en cours...', { title: newTask.title, projectId: newTask.projectId })
+    
+    try {
+      const res = await fetch('/api/tasks', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: newTask.title.trim(),
+          description: newTask.description?.trim() || null,
+          objectives: newTask.objectives?.trim() || null,
+          constraints: newTask.constraints?.trim() || null,
+          solutionProposed: newTask.solutionProposed?.trim() || null,
+          projectId: newTask.projectId,
+          status: newTask.status || 'À faire',
+          priority: newTask.priority || 'Moyenne',
+          dueDate: newTask.dueDate || null,
+          startDate: newTask.startDate || null,
+          assigneeName: newTask.assigneeName?.trim() || null,
+          budget: newTask.budget ? parseFloat(newTask.budget) : 0
+        })
+      })
+      
+      console.log('Réponse statut:', res.status)
+      const data = await res.json()
+      console.log('Réponse data:', data)
+      
+      if (data.success) {
+        toast({ title: '✅ Tâche créée avec succès !', description: newTask.title })
+        setCreateTaskModal(false)
+        setNewTask({
+          title: '',
+          description: '',
+          objectives: '',
+          constraints: '',
+          solutionProposed: '',
+          projectId: '',
+          status: 'À faire',
+          priority: 'Moyenne',
+          dueDate: '',
+          startDate: '',
+          assigneeName: '',
+          budget: ''
+        })
+        if (onTaskUpdate) onTaskUpdate()
+      } else {
+        console.error('Erreur API:', data.error)
+        toast({ 
+          title: '❌ Erreur lors de la création', 
+          description: data.error || 'Une erreur inconnue s\'est produite',
+          variant: 'destructive' 
+        })
+      }
+    } catch (error) {
+      console.error('Erreur de connexion:', error)
+      toast({ 
+        title: '❌ Erreur de connexion', 
+        description: 'Impossible de contacter le serveur. Vérifiez votre connexion.',
+        variant: 'destructive' 
+      })
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  // Fetch project expenses when a todo is expanded
+  useEffect(() => {
+    if (expandedTodo) {
+      const todo = todos.find(t => t.id === expandedTodo)
+      if (todo) {
+        fetch(`/api/expenses?projectId=${todo.projectId}`)
+          .then(res => res.json())
+          .then(data => {
+            if (data.success) {
+              setProjectExpenses(data.data || [])
+            }
+          })
+          .catch(console.error)
+      }
+    }
+  }, [expandedTodo, todos])
+
+  // Toggle date filter
+  const toggleDateFilter = (dateFilter: DateFilter) => {
+    setFilterDates(prev => {
+      if (prev.includes(dateFilter)) {
+        return prev.filter(d => d !== dateFilter)
+      } else {
+        return [...prev, dateFilter]
+      }
+    })
+  }
+
+  // Organize todos by date and status
+  const organizedTodos = useMemo(() => {
+    const inProgressList: TodoItem[] = []
+    const overdueList: TodoItem[] = []
+    const upcomingList: TodoItem[] = []
+    const completedList: TodoItem[] = []
+
+    todos.forEach(todo => {
+      switch (todo.status) {
+        case 'Terminé':
+          completedList.push(todo)
+          break
+        case 'En cours':
+          inProgressList.push(todo)
+          break
+        case 'En retard':
+          overdueList.push(todo)
+          break
+        case 'À venir':
+        default:
+          upcomingList.push(todo)
+          break
+      }
+    })
+
+    // Sort by deadline
+    const sortByDeadline = (a: TodoItem, b: TodoItem) => {
+      if (!a.deadline) return 1
+      if (!b.deadline) return -1
+      return new Date(a.deadline).getTime() - new Date(b.deadline).getTime()
+    }
+
+    return { 
+      inProgress: inProgressList.sort(sortByDeadline),
+      overdue: overdueList.sort(sortByDeadline), 
+      upcoming: upcomingList.sort(sortByDeadline), 
+      completed: completedList
+    }
+  }, [todos])
+
+  // Apply filters
+  const applyFilters = (todoList: TodoItem[], sectionType?: string) => {
+    let filtered = todoList
+    if (filterProject !== 'all') {
+      filtered = filtered.filter(t => t.projectId === filterProject)
+    }
+    // Apply date filters only if some are selected
+    if (filterDates.length > 0 && sectionType) {
+      const sectionMatch: Record<string, DateFilter> = {
+        'overdue': 'en-retard',
+        'upcoming': 'a-venir',
+        'completed': 'termine',
+        'inProgress': 'en-cours'
+      }
+      const filterKey = sectionMatch[sectionType]
+      if (filterKey && !filterDates.includes(filterKey)) {
+        return []
+      }
+    }
+    return filtered
+  }
+
+  // Stats
+  const stats = useMemo(() => ({
+    total: todos.length,
+    inProgress: todos.filter(t => t.status === 'En cours').length,
+    overdue: todos.filter(t => t.status === 'En retard').length,
+    upcoming: todos.filter(t => t.status === 'À venir').length,
+    completed: todos.filter(t => t.status === 'Terminé').length
+  }), [todos])
+
+  // Render todo item
+  const renderTodoItem = (todo: TodoItem, sectionType: string, isCompleted: boolean = false) => {
+    const isOverdue = todo.status === 'En retard' || (todo.deadline && (() => {
+      try {
+        return isPast(new Date(todo.deadline))
+      } catch { return false }
+    })())
+    const isExpanded = expandedTodo === todo.id
+    const isUpdating = updatingTaskId === todo.taskId
+    const todoExpenses = projectExpenses.filter(e => e.taskId === todo.taskId)
+
+    return (
+      <div 
+        key={todo.id}
+        className={`rounded-xl border transition-all w-full max-w-full overflow-hidden ${
+          todo.status === 'En retard'
+            ? 'bg-red-500/10 border-red-400/30' 
+            : isCompleted 
+            ? 'bg-green-500/10 border-green-400/30'
+            : todo.status === 'En cours'
+            ? 'bg-blue-500/10 border-blue-400/30'
+            : 'bg-[#1e3a5f]/50 border-blue-400/20'
+        }`}
+      >
+        <div className="p-3 md:p-4 w-full max-w-full overflow-hidden">
+          {/* Task content */}
+          <div className="flex items-start gap-3 min-w-0 flex-1">
+            {/* Task info */}
+            <div className="flex-1 min-w-0 overflow-hidden">
+              <div className="flex items-start justify-between gap-2 min-w-0">
+                <h3 className={`text-base md:text-lg font-semibold truncate ${isCompleted ? 'line-through text-gray-400' : 'text-white'}`}>
+                  {todo.taskTitle}
+                </h3>
+                <button
+                  type="button"
+                  onClick={() => setExpandedTodo(isExpanded ? null : todo.id)}
+                  className="text-gray-400 hover:text-white transition-colors p-1"
+                >
+                  <ChevronDown className={`w-4 h-4 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
+                </button>
+              </div>
+
+              {/* Quick info row */}
+              <div className="flex flex-wrap items-center gap-2 mt-2">
+                <Badge variant="outline" className="text-sm border-blue-400/30 text-blue-200">
+                  {todo.projectName}
+                </Badge>
+                {/* Affichage des dates de début et de fin */}
+                {(todo.startDate || todo.deadline) && (
+                  <span className={`text-sm flex items-center gap-1 ${isOverdue ? 'text-red-400 font-medium' : 'text-gray-400'}`}>
+                    <Clock className="w-4 h-4" />
+                    {todo.startDate && todo.deadline ? (
+                      <>
+                        {(() => {
+                          try {
+                            const start = new Date(todo.startDate)
+                            const end = new Date(todo.deadline)
+                            return `${format(start, 'd MMM', { locale: fr })} - ${format(end, 'd MMM yyyy', { locale: fr })}`
+                          } catch { return '-' }
+                        })()}
+                      </>
+                    ) : todo.startDate ? (
+                      (() => {
+                        try {
+                          const start = new Date(todo.startDate)
+                          return `Début: ${format(start, 'd MMM yyyy', { locale: fr })}`
+        } catch { return '-' }
+                      })()
+                    ) : todo.deadline ? (
+                      (() => {
+                        try {
+                          const d = new Date(todo.deadline)
+                          return isToday(d) ? "Aujourd'hui" :
+                                 isTomorrow(d) ? "Demain" :
+                                 format(d, 'd MMM yyyy', { locale: fr })
+                        } catch { return '-' }
+                      })()
+                    ) : null}
+                  </span>
+                )}
+                {todo.responsibleName && (
+                  <span className="text-sm text-gray-400 flex items-center gap-1">
+                    <User className="w-4 h-4" />
+                    {todo.responsibleName}
+                  </span>
+                )}
+                {todo.riskSeverity && (
+                  <span className={`text-sm flex items-center gap-1 ${
+                    todo.riskSeverity === 'Critique' ? 'text-red-400' :
+                    todo.riskSeverity === 'Haute' ? 'text-orange-400' : 'text-yellow-400'
+                  }`}>
+                    <AlertTriangle className="w-4 h-4" />
+                    {todo.riskTitle}
+                  </span>
+                )}
+              </div>
+
+              {/* Expanded content */}
+              {isExpanded && (
+                <div className="mt-4 space-y-3 border-t border-blue-400/10 pt-4 w-full max-w-full overflow-hidden">
+                  {todo.taskDescription && (
+                    <p className="text-base text-gray-300 break-words">{todo.taskDescription}</p>
+                  )}
+                  {todo.constraints && (
+                    <div className="p-3 bg-orange-500/10 rounded-lg border border-orange-400/20">
+                      <p className="text-sm text-orange-300 flex items-center gap-1">
+                        <AlertTriangle className="w-4 h-4" />
+                        Contrainte: {todo.constraints}
+                      </p>
+                    </div>
+                  )}
+                  {todo.solution && (
+                    <div className="p-3 bg-green-500/10 rounded-lg border border-green-400/20">
+                      <p className="text-sm text-green-300">
+                        💡 Solution: {todo.solution}
+                      </p>
+                    </div>
+                  )}
+                  
+                  {/* Task Budget Summary with Action Buttons */}
+                  <div className="p-3 md:p-4 bg-gradient-to-br from-green-500/10 to-green-600/5 rounded-lg border border-green-400/30 w-full overflow-hidden">
+                    <h4 className="text-sm md:text-base font-semibold text-green-300 mb-3 flex items-center gap-2">
+                      <Wallet className="w-4 h-4 md:w-5 md:h-5 flex-shrink-0" />
+                      Budget de la tâche
+                    </h4>
+                    <div className="space-y-2">
+                      <div className="flex justify-between items-center text-sm">
+                        <span className="text-gray-400">Budget prévu</span>
+                        <span className="text-green-300 font-medium">
+                          {todo.budget.toLocaleString()} FCFA
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center text-sm">
+                        <span className="text-gray-400">Dépenses ({todoExpenses.length})</span>
+                        <span className="text-amber-300 font-medium">
+                          {todo.budgetSpent.toLocaleString()} FCFA
+                        </span>
+                      </div>
+                      <div className="h-2 bg-blue-900/50 rounded-full overflow-hidden">
+                        <div 
+                          className={`h-full rounded-full transition-all ${
+                            todo.budget > 0 && todo.budgetSpent > todo.budget
+                              ? 'bg-gradient-to-r from-red-400 to-red-500'
+                              : 'bg-gradient-to-r from-green-400 to-green-500'
+                          }`}
+                          style={{ 
+                            width: `${todo.budget > 0 
+                              ? Math.min((todo.budgetSpent / todo.budget) * 100, 100) 
+                              : 0}%` 
+                          }}
+                        />
+                      </div>
+                      <div className="flex justify-between items-center text-sm font-medium pt-2 border-t border-gray-600/50">
+                        <span className="text-gray-300">Reste disponible</span>
+                        <span className={todo.budget - todo.budgetSpent >= 0 ? 'text-green-400' : 'text-red-400'}>
+                          {Math.max(0, todo.budget - todo.budgetSpent).toLocaleString()} FCFA
+                        </span>
+                      </div>
+                    </div>
+                    
+                    {/* Action buttons inside Budget section */}
+                    <div className="flex flex-wrap gap-2 mt-4 pt-3 border-t border-green-400/20 w-full">
+                      <Button
+                        type="button"
+                        size="sm"
+                        onClick={() => {
+                          setReprogramDialog({
+                            open: true,
+                            todo,
+                            newDate: todo.deadline ? format(new Date(todo.deadline), 'yyyy-MM-dd') : format(new Date(), 'yyyy-MM-dd'),
+                            newStatus: isCompleted ? 'À venir' : todo.status,
+                            reason: ''
+                          })
+                        }}
+                        className="bg-white text-black hover:bg-gray-100 border border-gray-300 text-xs sm:text-sm px-2 sm:px-3"
+                      >
+                        <Calendar className="w-3 h-3 flex-shrink-0" />
+                        <span className="ml-1 hidden sm:inline">Reprogrammer</span>
+                        <span className="ml-1 sm:hidden">Reprog.</span>
+                      </Button>
+                      
+                      <Button
+                        type="button"
+                        size="sm"
+                        onClick={() => setExpenseModal(todo)}
+                        className="bg-white text-black hover:bg-gray-100 border border-gray-300 text-xs sm:text-sm px-2 sm:px-3"
+                      >
+                        <DollarSign className="w-3 h-3 flex-shrink-0" />
+                        <span className="ml-1 hidden sm:inline">Dépense</span>
+                        <span className="ml-1 sm:hidden">Dép.</span>
+                      </Button>
+                      
+                      <Button
+                        type="button"
+                        size="sm"
+                        onClick={() => {
+                          setBudgetModal(todo)
+                          setBudgetAmount(todo.budget ? todo.budget.toString() : '')
+                        }}
+                        className="bg-white text-black hover:bg-gray-100 border border-gray-300 text-xs sm:text-sm px-2 sm:px-3"
+                      >
+                        <Wallet className="w-3 h-3 flex-shrink-0" />
+                        <span className="ml-1 hidden sm:inline">Budget</span>
+                        <span className="ml-1 sm:hidden">Budg.</span>
+                      </Button>
+                      
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="destructive"
+                        onClick={() => handleDeleteTask(todo)}
+                        disabled={updatingTaskId === todo.taskId}
+                        className="bg-red-600 hover:bg-red-700 text-white border border-red-500 text-xs sm:text-sm px-2 sm:px-3"
+                      >
+                        <Trash2 className="w-3 h-3 flex-shrink-0" />
+                        <span className="ml-1 hidden sm:inline">Supprimer</span>
+                        <span className="ml-1 sm:hidden">Sup.</span>
+                      </Button>
+                    </div>
+                  </div>
+                  
+                  {/* Task expenses list */}
+                  {todoExpenses.length > 0 && (
+                    <div className="p-4 bg-[#0f1c2e]/50 rounded-lg border border-amber-400/20">
+                      <h4 className="text-base font-semibold text-amber-300 mb-3 flex items-center gap-2">
+                        <DollarSign className="w-5 h-5" />
+                        Dépenses de cette tâche ({todoExpenses.length})
+                      </h4>
+                      <div className="space-y-2 max-h-48 overflow-y-auto">
+                        {todoExpenses.map(expense => (
+                          <div key={expense.id} className="flex justify-between items-center text-sm py-2 border-b border-gray-700/50 gap-2">
+                            <div className="flex-1 min-w-0">
+                              <span className="text-gray-300 truncate block">{expense.description}</span>
+                              {expense.category && expense.category !== 'Autres' && (
+                                <span className="text-gray-500 text-xs">{expense.category}</span>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <span className="text-amber-300 font-medium whitespace-nowrap">
+                                {expense.amount.toLocaleString()} FCFA
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setEditExpenseModal(expense)
+                                  setEditExpenseAmount(expense.amount.toString())
+                                  setEditExpenseCategory(expense.category || '')
+                                  setEditExpenseNote(expense.description)
+                                }}
+                                className="p-1 text-blue-400 hover:text-blue-300 hover:bg-blue-500/20 rounded transition-colors"
+                                title="Modifier"
+                              >
+                                <Pencil className="w-4 h-4" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteExpense(expense)}
+                                className="p-1 text-red-400 hover:text-red-300 hover:bg-red-500/20 rounded transition-colors"
+                                title="Supprimer"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                        <div className="flex justify-between items-center text-sm pt-2 font-semibold border-t border-gray-600/50">
+                          <span className="text-gray-200">Total dépenses</span>
+                          <span className="text-amber-400">
+                            {todo.budgetSpent.toLocaleString()} FCFA
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* Comment section */}
+                  <CommentSection taskId={todo.taskId} />
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // Render section
+  const renderSection = (title: string, icon: React.ReactNode, items: TodoItem[], titleColor: string, sectionType?: string, isCompleted: boolean = false) => {
+    const filtered = applyFilters(items, sectionType)
+    if (filtered.length === 0) return null
+
+    return (
+      <div className="space-y-4">
+        <h2 className={`text-xl font-bold flex items-center gap-2 ${titleColor}`}>
+          {icon}
+          {title}
+          <Badge variant="outline" className="ml-2 bg-transparent text-base">{filtered.length}</Badge>
+        </h2>
+        <div className="space-y-3">
+          {filtered.map(todo => renderTodoItem(todo, sectionType || '', isCompleted))}
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-6 w-full max-w-full overflow-hidden">
+      {/* Header */}
+      <div className="flex items-start justify-between gap-4 flex-wrap">
+        <div className="min-w-0">
+          <h1 className="text-xl md:text-2xl font-bold text-white flex items-center gap-2">
+            <ListTodo className="w-5 h-5 md:w-6 md:h-6 text-amber-400 flex-shrink-0" />
+            <span className="truncate">TODO List Projet</span>
+          </h1>
+          <p className="text-gray-400 text-sm md:text-base mt-1">
+            {format(new Date(), "'Le' d MMMM yyyy", { locale: fr })}
+          </p>
+        </div>
+        <Button
+          type="button"
+          onClick={() => setCreateTaskModal(true)}
+          className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white font-semibold shadow-lg"
+        >
+          <Plus className="w-4 h-4 mr-2" />
+          Création tâche
+        </Button>
+      </div>
+
+      {/* Stats Cards */}
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+        <Card className="bg-[#1e3a5f]/30 border-blue-400/20">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 bg-blue-500/20 rounded-lg">
+                <Play className="w-5 h-5 text-blue-400" />
+              </div>
+              <div>
+                <p className="text-gray-400 text-sm">En cours</p>
+                <p className="text-2xl font-bold text-white">{stats.inProgress}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-[#1e3a5f]/30 border-red-400/20">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 bg-red-500/20 rounded-lg">
+                <AlertTriangle className="w-5 h-5 text-red-400" />
+              </div>
+              <div>
+                <p className="text-red-300 text-sm">En retard</p>
+                <p className="text-2xl font-bold text-red-400">{stats.overdue}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-[#1e3a5f]/30 border-amber-400/20">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 bg-amber-500/20 rounded-lg">
+                <Calendar className="w-5 h-5 text-amber-400" />
+              </div>
+              <div>
+                <p className="text-gray-400 text-sm">À venir</p>
+                <p className="text-2xl font-bold text-white">{stats.upcoming}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-[#1e3a5f]/30 border-green-400/20">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 bg-green-500/20 rounded-lg">
+                <CheckCircle2 className="w-5 h-5 text-green-400" />
+              </div>
+              <div>
+                <p className="text-gray-400 text-sm">Terminé</p>
+                <p className="text-2xl font-bold text-white">{stats.completed}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-[#1e3a5f]/30 border-blue-400/20">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 bg-gray-500/20 rounded-lg">
+                <ListTodo className="w-5 h-5 text-gray-400" />
+              </div>
+              <div>
+                <p className="text-gray-400 text-sm">Total</p>
+                <p className="text-2xl font-bold text-white">{stats.total}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Filters */}
+      <div className="flex flex-wrap items-start gap-4 p-4 bg-[#1e3a5f]/30 rounded-xl border border-blue-400/20">
+        <Filter className="w-5 h-5 text-gray-400 mt-2.5" />
+        
+        {/* Project filter */}
+        <div className="flex flex-col gap-1">
+          <label className="text-sm text-gray-400">Projet</label>
+          <select
+            value={filterProject}
+            onChange={(e) => setFilterProject(e.target.value)}
+            className="bg-[#0f1c2e] border border-blue-400/30 rounded-md px-3 py-2 text-white text-base min-w-[200px]"
+          >
+            <option value="all">Tous les projets</option>
+            {projects.map(p => (
+              <option key={p.id} value={p.id}>{p.name}</option>
+            ))}
+          </select>
+        </div>
+        
+        <div className="h-12 w-px bg-blue-400/20 hidden sm:block" />
+        
+        {/* Multi-select Date filter */}
+        <div className="flex flex-col gap-2">
+          <label className="text-sm text-gray-400">Filtres (multi-sélection)</label>
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => toggleDateFilter('en-cours')}
+              className={`flex items-center gap-2 px-4 py-2 rounded-md border text-base transition-all ${
+                filterDates.includes('en-cours') 
+                  ? 'bg-blue-500/30 border-blue-400 text-white' 
+                  : 'bg-[#0f1c2e] border-blue-400/30 text-gray-400 hover:border-blue-400/50'
+              }`}
+            >
+              <Play className="w-4 h-4" />
+              En cours
+              {filterDates.includes('en-cours') && <Check className="w-4 h-4 text-green-400" />}
+            </button>
+            
+            <button
+              type="button"
+              onClick={() => toggleDateFilter('en-retard')}
+              className={`flex items-center gap-2 px-4 py-2 rounded-md border text-base transition-all ${
+                filterDates.includes('en-retard') 
+                  ? 'bg-red-500/30 border-red-400 text-white' 
+                  : 'bg-[#0f1c2e] border-blue-400/30 text-gray-400 hover:border-red-400/50'
+              }`}
+            >
+              <AlertTriangle className="w-4 h-4" />
+              En retard
+              {filterDates.includes('en-retard') && <Check className="w-4 h-4 text-green-400" />}
+            </button>
+            
+            <button
+              type="button"
+              onClick={() => toggleDateFilter('a-venir')}
+              className={`flex items-center gap-2 px-4 py-2 rounded-md border text-base transition-all ${
+                filterDates.includes('a-venir') 
+                  ? 'bg-amber-500/30 border-amber-400 text-white' 
+                  : 'bg-[#0f1c2e] border-blue-400/30 text-gray-400 hover:border-amber-400/50'
+              }`}
+            >
+              <Calendar className="w-4 h-4" />
+              À venir
+              {filterDates.includes('a-venir') && <Check className="w-4 h-4 text-green-400" />}
+            </button>
+            
+            <button
+              type="button"
+              onClick={() => toggleDateFilter('termine')}
+              className={`flex items-center gap-2 px-4 py-2 rounded-md border text-base transition-all ${
+                filterDates.includes('termine') 
+                  ? 'bg-green-500/30 border-green-400 text-white' 
+                  : 'bg-[#0f1c2e] border-blue-400/30 text-gray-400 hover:border-green-400/50'
+              }`}
+            >
+              <CheckCircle2 className="w-4 h-4" />
+              Terminé
+              {filterDates.includes('termine') && <Check className="w-4 h-4 text-green-400" />}
+            </button>
+            
+            {filterDates.length > 0 && (
+              <button
+                type="button"
+                onClick={() => setFilterDates([])}
+                className="flex items-center gap-1 px-4 py-2 rounded-md border border-red-400/30 text-red-400 text-base hover:bg-red-500/20 transition-all"
+              >
+                <X className="w-4 h-4" />
+                Effacer
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Todo Lists */}
+      {todos.length === 0 ? (
+        <div className="text-center py-12 bg-[#1e3a5f]/30 rounded-xl border border-dashed border-blue-400/30">
+          <ListTodo className="w-12 h-12 text-gray-500 mx-auto mb-4" />
+          <p className="text-gray-400 text-lg">Aucune tâche à afficher</p>
+          <p className="text-gray-500 text-base mt-2">Toutes les tâches sont terminées ou annulées</p>
+        </div>
+      ) : (
+        <div className="space-y-8">
+          {/* In Progress */}
+          {renderSection(
+            "▶️ En cours",
+            <Play className="w-5 h-5 text-blue-400" />,
+            organizedTodos.inProgress,
+            "text-blue-400",
+            "inProgress"
+          )}
+
+          {/* Overdue */}
+          {renderSection(
+            "⚠️ En retard",
+            <AlertTriangle className="w-5 h-5 text-red-400" />,
+            organizedTodos.overdue,
+            "text-red-400",
+            "overdue"
+          )}
+
+          {/* Upcoming */}
+          {renderSection(
+            "📅 À venir",
+            <Calendar className="w-5 h-5 text-amber-400" />,
+            organizedTodos.upcoming,
+            "text-amber-400",
+            "upcoming"
+          )}
+
+          {/* Completed - with Reprogrammer button */}
+          {renderSection(
+            "✅ Terminé",
+            <CheckCircle2 className="w-5 h-5 text-green-400" />,
+            organizedTodos.completed,
+            "text-green-400",
+            "completed",
+            true // isCompleted = true
+          )}
+        </div>
+      )}
+
+      {/* Reprogramming Dialog */}
+      <Dialog open={reprogramDialog.open} onOpenChange={(open) => 
+        setReprogramDialog(prev => ({ ...prev, open }))
+      }>
+        <DialogContent className="bg-gradient-to-br from-[#1e3a5f] to-[#0f1c2e] border-amber-400/30 text-white">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-amber-300">
+              <Calendar className="w-5 h-5" />
+              Reprogrammer la tâche
+            </DialogTitle>
+          </DialogHeader>
+          
+          {reprogramDialog.todo && (
+            <div className="space-y-4 py-4">
+              <p className="text-gray-300 text-sm">
+                Tâche: <span className="text-white font-medium">{reprogramDialog.todo.taskTitle}</span>
+              </p>
+              
+              <div>
+                <label className="text-sm text-gray-400 block mb-1">Nouvelle date limite *</label>
+                <Input
+                  type="date"
+                  value={reprogramDialog.newDate}
+                  onChange={(e) => setReprogramDialog(prev => ({ ...prev, newDate: e.target.value }))}
+                  className="bg-[#0f1c2e] border-blue-400/30 text-white"
+                />
+              </div>
+              
+              <div>
+                <label className="text-sm text-gray-400 block mb-1">Nouveau statut</label>
+                <select
+                  value={reprogramDialog.newStatus}
+                  onChange={(e) => setReprogramDialog(prev => ({ ...prev, newStatus: e.target.value }))}
+                  className="w-full bg-[#0f1c2e] border border-blue-400/30 rounded-md px-3 py-2 text-white"
+                >
+                  <option value="À venir">À venir</option>
+                  <option value="En cours">En cours</option>
+                  <option value="En retard">En retard</option>
+                  <option value="Terminé">Terminé</option>
+                </select>
+              </div>
+              
+              <div>
+                <label className="text-sm text-gray-400 block mb-1">Raison du changement (optionnel)</label>
+                <Input
+                  value={reprogramDialog.reason}
+                  onChange={(e) => setReprogramDialog(prev => ({ ...prev, reason: e.target.value }))}
+                  placeholder="Ex: Retard de livraison des matériaux"
+                  className="bg-[#0f1c2e] border-blue-400/30 text-white"
+                />
+              </div>
+            </div>
+          )}
+          
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setReprogramDialog({ open: false, todo: null, newDate: '', newStatus: '', reason: '' })}
+              className="border-blue-400/30 text-blue-200 hover:bg-blue-500/20"
+            >
+              Annuler
+            </Button>
+            <Button
+              type="button"
+              onClick={handleReprogram}
+              disabled={saving || !reprogramDialog.newDate}
+              className="bg-amber-500 hover:bg-amber-600 text-black font-semibold"
+            >
+              {saving ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+              Confirmer
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Expense Modal */}
+      {expenseModal && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
+          <div className="bg-gradient-to-br from-[#1e3a5f] to-[#0f1c2e] rounded-xl border border-amber-400/30 p-6 w-full max-w-md shadow-2xl">
+            <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+              <DollarSign className="w-5 h-5 text-amber-400" />
+              Enregistrer une dépense
+            </h3>
+            <p className="text-sm text-gray-400 mb-4">
+              Tâche: {expenseModal.taskTitle}
+            </p>
+            <p className="text-xs text-gray-500 mb-4">
+              Projet: {expenseModal.projectName}
+            </p>
+            
+            <div className="space-y-4">
+              <div>
+                <label className="text-sm text-gray-400 block mb-1">Montant (FCFA) *</label>
+                <Input
+                  type="number"
+                  value={expenseAmount}
+                  onChange={(e) => setExpenseAmount(e.target.value)}
+                  placeholder="Ex: 50000"
+                  className="bg-[#0f1c2e] border-blue-400/30 text-white"
+                  autoFocus
+                />
+              </div>
+              
+              <div>
+                <label className="text-sm text-gray-400 block mb-1">Catégorie</label>
+                <Input
+                  value={expenseCategory}
+                  onChange={(e) => setExpenseCategory(e.target.value)}
+                  placeholder="Ex: Matériaux, Main d'œuvre, Transport..."
+                  className="bg-[#0f1c2e] border-blue-400/30 text-white"
+                />
+              </div>
+              
+              <div>
+                <label className="text-sm text-gray-400 block mb-1">Note (optionnel)</label>
+                <Input
+                  value={expenseNote}
+                  onChange={(e) => setExpenseNote(e.target.value)}
+                  placeholder="Détails sur la dépense"
+                  className="bg-[#0f1c2e] border-blue-400/30 text-white"
+                />
+              </div>
+            </div>
+            
+            <div className="flex gap-3 mt-6">
+              <Button
+                type="button"
+                onClick={handleAddExpense}
+                disabled={saving || !expenseAmount}
+                className="flex-1 bg-amber-500 hover:bg-amber-600 text-black font-semibold"
+              >
+                {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Enregistrer la dépense'}
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setExpenseModal(null)
+                  setExpenseAmount('')
+                  setExpenseNote('')
+                }}
+                className="border-blue-400/30 text-blue-200 hover:bg-blue-500/20"
+              >
+                Annuler
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Budget Modal */}
+      {budgetModal && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
+          <div className="bg-gradient-to-br from-[#1e3a5f] to-[#0f1c2e] rounded-xl border border-green-400/30 p-6 w-full max-w-md shadow-2xl">
+            <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+              <Wallet className="w-5 h-5 text-green-400" />
+              {budgetModal.budget > 0 ? 'Modifier le budget' : 'Ajouter un budget'}
+            </h3>
+            <p className="text-sm text-gray-400 mb-4">
+              Tâche: {budgetModal.taskTitle}
+            </p>
+            
+            <div className="space-y-4">
+              <div>
+                <label className="text-sm text-gray-400 block mb-1">Montant du budget (FCFA) *</label>
+                <Input
+                  type="number"
+                  value={budgetAmount}
+                  onChange={(e) => setBudgetAmount(e.target.value)}
+                  placeholder="Ex: 500000"
+                  className="bg-[#0f1c2e] border-green-400/30 text-white"
+                  autoFocus
+                />
+              </div>
+              
+              {budgetModal.budget > 0 && (
+                <div className="p-3 bg-blue-500/10 rounded-lg border border-blue-400/20">
+                  <p className="text-xs text-blue-300">
+                    Budget actuel: {budgetModal.budget.toLocaleString()} FCFA
+                  </p>
+                  <p className="text-xs text-amber-300 mt-1">
+                    Dépenses: {projectExpenses.filter(e => 
+                      e.description?.includes(budgetModal.taskTitle) || 
+                      e.description?.toLowerCase().includes(budgetModal.taskTitle.toLowerCase())
+                    ).reduce((sum, e) => sum + e.amount, 0).toLocaleString()} FCFA
+                  </p>
+                </div>
+              )}
+            </div>
+            
+            <div className="flex gap-3 mt-6">
+              <Button
+                type="button"
+                onClick={handleAddBudget}
+                disabled={saving || !budgetAmount}
+                className="flex-1 bg-green-500 hover:bg-green-600 text-black font-semibold"
+              >
+                {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Enregistrer le budget'}
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setBudgetModal(null)
+                  setBudgetAmount('')
+                }}
+                className="border-blue-400/30 text-blue-200 hover:bg-blue-500/20"
+              >
+                Annuler
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Create Task Modal */}
+      {createTaskModal && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4 overflow-y-auto">
+          <div className="bg-gradient-to-br from-[#1e3a5f] to-[#0f1c2e] rounded-xl border border-green-400/30 p-6 w-full max-w-2xl shadow-2xl my-8">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-xl font-bold text-white flex items-center gap-2">
+                <Plus className="w-6 h-6 text-green-400" />
+                Création d'une nouvelle tâche
+              </h3>
+              <button
+                type="button"
+                onClick={() => setCreateTaskModal(false)}
+                className="text-gray-400 hover:text-white transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-h-[60vh] overflow-y-auto pr-2">
+              {/* Titre */}
+              <div className="md:col-span-2">
+                <label className="text-sm text-gray-400 block mb-1">Titre de la tâche *</label>
+                <Input
+                  value={newTask.title}
+                  onChange={(e) => setNewTask(prev => ({ ...prev, title: e.target.value }))}
+                  placeholder="Ex: Réaliser l'étude de sol"
+                  className="bg-[#0f1c2e] border-blue-400/30 text-white"
+                />
+              </div>
+              
+              {/* Description */}
+              <div className="md:col-span-2">
+                <label className="text-sm text-gray-400 block mb-1">Description</label>
+                <textarea
+                  value={newTask.description}
+                  onChange={(e) => setNewTask(prev => ({ ...prev, description: e.target.value }))}
+                  placeholder="Description détaillée de la tâche..."
+                  className="w-full bg-[#0f1c2e] border border-blue-400/30 rounded-md px-3 py-2 text-white text-sm min-h-[80px] resize-none"
+                />
+              </div>
+              
+              {/* Objectifs */}
+              <div className="md:col-span-2">
+                <label className="text-sm text-gray-400 block mb-1 flex items-center gap-1">
+                  <Target className="w-3 h-3" />
+                  Objectifs
+                </label>
+                <textarea
+                  value={newTask.objectives}
+                  onChange={(e) => setNewTask(prev => ({ ...prev, objectives: e.target.value }))}
+                  placeholder="Objectifs à atteindre..."
+                  className="w-full bg-[#0f1c2e] border border-blue-400/30 rounded-md px-3 py-2 text-white text-sm min-h-[60px] resize-none"
+                />
+              </div>
+              
+              {/* Contraintes */}
+              <div>
+                <label className="text-sm text-gray-400 block mb-1 flex items-center gap-1">
+                  <AlertTriangle className="w-3 h-3" />
+                  Contraintes
+                </label>
+                <textarea
+                  value={newTask.constraints}
+                  onChange={(e) => setNewTask(prev => ({ ...prev, constraints: e.target.value }))}
+                  placeholder="Contraintes éventuelles..."
+                  className="w-full bg-[#0f1c2e] border border-blue-400/30 rounded-md px-3 py-2 text-white text-sm min-h-[60px] resize-none"
+                />
+              </div>
+              
+              {/* Solution proposée */}
+              <div>
+                <label className="text-sm text-gray-400 block mb-1 flex items-center gap-1">
+                  <CheckCircle2 className="w-3 h-3" />
+                  Solution proposée
+                </label>
+                <textarea
+                  value={newTask.solutionProposed}
+                  onChange={(e) => setNewTask(prev => ({ ...prev, solutionProposed: e.target.value }))}
+                  placeholder="Solution envisagée..."
+                  className="w-full bg-[#0f1c2e] border border-blue-400/30 rounded-md px-3 py-2 text-white text-sm min-h-[60px] resize-none"
+                />
+              </div>
+              
+              {/* Projet */}
+              <div>
+                <label className="text-sm text-gray-400 block mb-1">Projet *</label>
+                <select
+                  value={newTask.projectId}
+                  onChange={(e) => setNewTask(prev => ({ ...prev, projectId: e.target.value }))}
+                  className="w-full bg-[#0f1c2e] border border-blue-400/30 rounded-md px-3 py-2 text-white text-sm"
+                >
+                  <option value="">Sélectionner un projet</option>
+                  {projects.map(p => (
+                    <option key={p.id} value={p.id}>{p.name}</option>
+                  ))}
+                </select>
+              </div>
+              
+              {/* Responsable */}
+              <div>
+                <label className="text-sm text-gray-400 block mb-1 flex items-center gap-1">
+                  <User className="w-3 h-3" />
+                  Responsable
+                </label>
+                <Input
+                  value={newTask.assigneeName}
+                  onChange={(e) => setNewTask(prev => ({ ...prev, assigneeName: e.target.value }))}
+                  placeholder="Nom du responsable"
+                  className="bg-[#0f1c2e] border-blue-400/30 text-white"
+                />
+              </div>
+              
+              {/* Statut */}
+              <div>
+                <label className="text-sm text-gray-400 block mb-1">Statut</label>
+                <select
+                  value={newTask.status}
+                  onChange={(e) => setNewTask(prev => ({ ...prev, status: e.target.value }))}
+                  className="w-full bg-[#0f1c2e] border border-blue-400/30 rounded-md px-3 py-2 text-white text-sm"
+                >
+                  <option value="À faire">À faire</option>
+                  <option value="En cours">En cours</option>
+                  <option value="En retard">En retard</option>
+                  <option value="Validé">Validé</option>
+                </select>
+              </div>
+              
+              {/* Priorité */}
+              <div>
+                <label className="text-sm text-gray-400 block mb-1">Priorité</label>
+                <select
+                  value={newTask.priority}
+                  onChange={(e) => setNewTask(prev => ({ ...prev, priority: e.target.value }))}
+                  className="w-full bg-[#0f1c2e] border border-blue-400/30 rounded-md px-3 py-2 text-white text-sm"
+                >
+                  <option value="Basse">Basse</option>
+                  <option value="Moyenne">Moyenne</option>
+                  <option value="Haute">Haute</option>
+                  <option value="Urgente">Urgente</option>
+                </select>
+              </div>
+              
+              {/* Date limite */}
+              <div>
+                <label className="text-sm text-gray-400 block mb-1 flex items-center gap-1">
+                  <Calendar className="w-3 h-3" />
+                  Date limite
+                </label>
+                <Input
+                  type="date"
+                  value={newTask.dueDate}
+                  onChange={(e) => setNewTask(prev => ({ ...prev, dueDate: e.target.value }))}
+                  className="bg-[#0f1c2e] border-blue-400/30 text-white"
+                />
+              </div>
+              
+              {/* Date début de tâche */}
+              <div>
+                <label className="text-sm text-gray-400 block mb-1 flex items-center gap-1">
+                  <Play className="w-3 h-3" />
+                  Date début de tâche
+                </label>
+                <Input
+                  type="date"
+                  value={newTask.startDate}
+                  onChange={(e) => setNewTask(prev => ({ ...prev, startDate: e.target.value }))}
+                  className="bg-[#0f1c2e] border-blue-400/30 text-white"
+                />
+              </div>
+              
+              {/* Budget */}
+              <div>
+                <label className="text-sm text-gray-400 block mb-1 flex items-center gap-1">
+                  <Wallet className="w-3 h-3" />
+                  Budget prévu (FCFA)
+                </label>
+                <Input
+                  type="number"
+                  value={newTask.budget}
+                  onChange={(e) => setNewTask(prev => ({ ...prev, budget: e.target.value }))}
+                  placeholder="Ex: 500000"
+                  className="bg-[#0f1c2e] border-blue-400/30 text-white"
+                />
+              </div>
+            </div>
+            
+            <div className="flex gap-3 mt-6 pt-4 border-t border-blue-400/20">
+              <Button
+                type="button"
+                onClick={handleCreateTask}
+                disabled={saving || !newTask.title || !newTask.projectId}
+                className="flex-1 bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white font-semibold"
+              >
+                {saving ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Plus className="w-4 h-4 mr-2" />}
+                Créer la tâche
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setCreateTaskModal(false)
+                  setNewTask({
+                    title: '',
+                    description: '',
+                    objectives: '',
+                    constraints: '',
+                    solutionProposed: '',
+                    projectId: '',
+                    status: 'À faire',
+                    priority: 'Moyenne',
+                    dueDate: '',
+                    startDate: '',
+                    assigneeName: '',
+                    budget: ''
+                  })
+                }}
+                className="border-blue-400/30 text-blue-200 hover:bg-blue-500/20"
+              >
+                Annuler
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Expense Modal */}
+      {editExpenseModal && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
+          <div className="bg-gradient-to-br from-[#1e3a5f] to-[#0f1c2e] rounded-xl border border-blue-400/30 p-6 w-full max-w-md shadow-2xl">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-white flex items-center gap-2">
+                <Pencil className="w-5 h-5 text-blue-400" />
+                Modifier la dépense
+              </h3>
+              <button
+                type="button"
+                onClick={() => {
+                  setEditExpenseModal(null)
+                  setEditExpenseAmount('')
+                  setEditExpenseCategory('')
+                  setEditExpenseNote('')
+                }}
+                className="text-gray-400 hover:text-white transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            
+            <div className="space-y-4">
+              <div>
+                <label className="text-sm text-gray-400 block mb-1">Montant (FCFA) *</label>
+                <Input
+                  type="number"
+                  value={editExpenseAmount}
+                  onChange={(e) => setEditExpenseAmount(e.target.value)}
+                  placeholder="Ex: 50000"
+                  className="bg-[#0f1c2e] border-blue-400/30 text-white"
+                  autoFocus
+                />
+              </div>
+              
+              <div>
+                <label className="text-sm text-gray-400 block mb-1">Catégorie</label>
+                <Input
+                  value={editExpenseCategory}
+                  onChange={(e) => setEditExpenseCategory(e.target.value)}
+                  placeholder="Ex: Matériaux, Main d'œuvre, Transport..."
+                  className="bg-[#0f1c2e] border-blue-400/30 text-white"
+                />
+              </div>
+              
+              <div>
+                <label className="text-sm text-gray-400 block mb-1">Description / Note</label>
+                <Input
+                  value={editExpenseNote}
+                  onChange={(e) => setEditExpenseNote(e.target.value)}
+                  placeholder="Détails sur la dépense"
+                  className="bg-[#0f1c2e] border-blue-400/30 text-white"
+                />
+              </div>
+            </div>
+            
+            <div className="flex gap-3 mt-6">
+              <Button
+                type="button"
+                onClick={handleEditExpense}
+                disabled={saving || !editExpenseAmount}
+                className="flex-1 bg-blue-500 hover:bg-blue-600 text-white font-semibold"
+              >
+                {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Enregistrer les modifications'}
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setEditExpenseModal(null)
+                  setEditExpenseAmount('')
+                  setEditExpenseCategory('')
+                  setEditExpenseNote('')
+                }}
+                className="border-blue-400/30 text-blue-200 hover:bg-blue-500/20"
+              >
+                Annuler
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Task Confirmation Modal */}
+      {deleteTaskModal && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
+          <div className="bg-gradient-to-br from-[#1e3a5f] to-[#0f1c2e] rounded-xl border border-red-400/30 p-6 w-full max-w-md shadow-2xl">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-white flex items-center gap-2">
+                <Trash2 className="w-5 h-5 text-red-400" />
+                Confirmer la suppression
+              </h3>
+              <button
+                type="button"
+                onClick={() => setDeleteTaskModal(null)}
+                className="text-gray-400 hover:text-white transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            
+            <div className="space-y-4">
+              <div className="p-4 bg-red-500/10 rounded-lg border border-red-400/20">
+                <p className="text-red-300 font-medium mb-2">
+                  ⚠️ Cette action est irréversible !
+                </p>
+                <p className="text-gray-300 text-sm">
+                  Êtes-vous sûr de vouloir supprimer définitivement la tâche :
+                </p>
+                <p className="text-white font-semibold mt-2">
+                  "{deleteTaskModal.taskTitle}"
+                </p>
+                <p className="text-gray-400 text-xs mt-2">
+                  Projet: {deleteTaskModal.projectName}
+                </p>
+              </div>
+              
+              <p className="text-gray-400 text-sm">
+                Cette action supprimera également toutes les dépenses et sous-tâches associées.
+              </p>
+            </div>
+            
+            <div className="flex gap-3 mt-6">
+              <Button
+                type="button"
+                onClick={confirmDeleteTask}
+                disabled={updatingTaskId === deleteTaskModal.taskId}
+                className="flex-1 bg-red-600 hover:bg-red-700 text-white font-semibold"
+              >
+                {updatingTaskId === deleteTaskModal.taskId ? (
+                  <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                ) : (
+                  <Trash2 className="w-4 h-4 mr-2" />
+                )}
+                Supprimer définitivement
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setDeleteTaskModal(null)}
+                className="border-blue-400/30 text-blue-200 hover:bg-blue-500/20"
+              >
+                Annuler
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}

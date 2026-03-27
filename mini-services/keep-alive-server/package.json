@@ -1,0 +1,7 @@
+{
+  "name": "keep-alive-server",
+  "version": "1.0.0",
+  "scripts": {
+    "dev": "bash index.sh"
+  }
+}

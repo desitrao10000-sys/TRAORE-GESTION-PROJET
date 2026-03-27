@@ -1,0 +1,11 @@
+$ cd /home/z/my-project && exec bun run dev
+$ next dev -p 3000
+▲ Next.js 16.1.3 (Turbopack)
+- Local:         http://localhost:3000
+- Network:       http://21.0.8.122:3000
+- Environments: .env
+- Experiments (use with caution):
+  · staleTimes
+
+✓ Starting...
+✓ Ready in 1016ms

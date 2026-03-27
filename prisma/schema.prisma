@@ -1,0 +1,377 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model ActivityHistory {
+  id         String   @id
+  action     String
+  entityType String
+  entityId   String
+  details    String?
+  userId     String?
+  userName   String?
+  taskId     String?
+  createdAt  DateTime @default(now())
+  Task       Task?    @relation(fields: [taskId], references: [id], onDelete: Cascade)
+}
+
+model AppSettings {
+  id          String   @id
+  key         String   @unique
+  value       String
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime
+}
+
+model Comment {
+  id         String   @id
+  content    String
+  authorId   String?
+  authorName String
+  projectId  String?
+  taskId     String?
+  mentions   String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime
+  Task       Task?    @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  Project    Project? @relation(fields: [projectId], references: [id], onDelete: Cascade)
+}
+
+model DailyTodo {
+  id              String    @id
+  date            DateTime  @default(now())
+  taskSnapshot    String
+  projectId       String
+  projectName     String
+  taskId          String
+  taskTitle       String
+  status          String    @default("À faire")
+  deadline        DateTime?
+  responsibleName String?
+  constraints     String?
+  solution        String?
+  reminderDate    DateTime?
+  reminderSent    Boolean   @default(false)
+  completedAt     DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime
+}
+
+model DelayCause {
+  id          String   @id
+  name        String
+  description String?
+  color       String?
+  isDefault   Boolean  @default(false)
+  projectId   String?
+  usages      Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime
+  Project     Project? @relation(fields: [projectId], references: [id])
+}
+
+model Expense {
+  id          String   @id
+  description String
+  amount      Float
+  category    String?
+  date        DateTime @default(now())
+  projectId   String
+  taskId      String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime
+  Task        Task?    @relation(fields: [taskId], references: [id])
+  Project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+}
+
+model Folder {
+  id        String    @id
+  name      String    @unique
+  icon      String?
+  color     String?
+  order     Int       @default(0)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime
+  Project   Project[]
+}
+
+model Notification {
+  id          String    @id
+  type        String
+  title       String
+  message     String
+  read        Boolean   @default(false)
+  userId      String?
+  entityId    String?
+  entityType  String?
+  scheduledAt DateTime?
+  sentAt      DateTime?
+  createdAt   DateTime  @default(now())
+}
+
+model PdfImport {
+  id         String   @id
+  fileName   String
+  filePath   String?
+  status     String   @default("En attente")
+  tasksCount Int      @default(0)
+  tasksDraft Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime
+}
+
+model PersonalTodo {
+  id                  String                @id
+  title               String
+  description         String?
+  status              String                @default("À faire")
+  priority            String                @default("Moyenne")
+  dueDate             DateTime?
+  completedAt         DateTime?
+  originalDueDate     DateTime?
+  reprogrammed        Boolean               @default(false)
+  reprogrammedAt      DateTime?
+  reprogramReason     String?
+  reprogramCount      Int                   @default(0)
+  userId              String?
+  createdAt           DateTime              @default(now())
+  updatedAt           DateTime
+  PersonalTodoHistory PersonalTodoHistory[]
+}
+
+model PersonalTodoHistory {
+  id             String       @id
+  personalTodoId String
+  oldDueDate     DateTime?
+  newDueDate     DateTime?
+  reason         String?
+  reprogrammedAt DateTime     @default(now())
+  createdAt      DateTime     @default(now())
+  PersonalTodo   PersonalTodo @relation(fields: [personalTodoId], references: [id], onDelete: Cascade)
+}
+
+model Project {
+  id               String            @id
+  name             String
+  description      String?
+  objectives       String?
+  constraints      String?
+  status           String            @default("En cours")
+  isArchived       Boolean           @default(false)
+  isTemplate       Boolean           @default(false)
+  budgetPlanned    Float             @default(0)
+  budgetSpent      Float             @default(0)
+  responsibleName  String?
+  responsibleId    String?
+  folderId         String?
+  templateId       String?
+  startDate        DateTime?
+  endDate          DateTime?
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime
+  Comment          Comment[]
+  DelayCause       DelayCause[]
+  Expense          Expense[]
+  ProjectTemplate  ProjectTemplate?  @relation(fields: [templateId], references: [id])
+  Folder           Folder?           @relation(fields: [folderId], references: [id])
+  ProjectDashboard ProjectDashboard?
+  Risk             Risk[]
+  Task             Task[]
+}
+
+model ProjectDashboard {
+  id                String   @id
+  projectId         String   @unique
+  tasksTotal        Int      @default(0)
+  tasksCompleted    Int      @default(0)
+  tasksInProgress   Int      @default(0)
+  tasksLate         Int      @default(0)
+  tasksToDo         Int      @default(0)
+  risksTotal        Int      @default(0)
+  risksCritical     Int      @default(0)
+  budgetUsedPercent Float    @default(0)
+  lastUpdated       DateTime @default(now())
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime
+  Project           Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+}
+
+model ProjectTemplate {
+  id            String         @id
+  name          String
+  description   String?
+  icon          String?
+  color         String?
+  defaultBudget Float          @default(0)
+  isDefault     Boolean        @default(false)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime
+  Project       Project[]
+  TaskTemplate  TaskTemplate[]
+}
+
+model QuestionnaireAnswer {
+  id         String   @id
+  questionId String
+  answer     String
+  taskId     String?
+  createdAt  DateTime @default(now())
+}
+
+model QuestionnaireQuestion {
+  id                    String                @id
+  question              String
+  type                  String
+  options               String?
+  required              Boolean               @default(false)
+  order                 Int                   @default(0)
+  templateId            String
+  createdAt             DateTime              @default(now())
+  updatedAt             DateTime
+  QuestionnaireTemplate QuestionnaireTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+}
+
+model QuestionnaireTemplate {
+  id                    String                  @id
+  name                  String
+  description           String?
+  isActive              Boolean                 @default(true)
+  createdAt             DateTime                @default(now())
+  updatedAt             DateTime
+  QuestionnaireQuestion QuestionnaireQuestion[]
+}
+
+model Risk {
+  id               String   @id
+  title            String
+  description      String?
+  severity         String   @default("Moyenne")
+  severityScore    Int      @default(1)
+  probability      String   @default("Moyenne")
+  probabilityScore Int      @default(1)
+  riskScore        Int      @default(1)
+  status           String   @default("Identifié")
+  mitigation       String?
+  projectId        String
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime
+  Project          Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+}
+
+model Session {
+  id        String   @id
+  userId    String
+  token     String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  User      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model SubTask {
+  id          String   @id
+  title       String
+  isCompleted Boolean  @default(false)
+  taskId      String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime
+  Task        Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+}
+
+model Task {
+  id               String            @id
+  title            String
+  description      String?
+  objectives       String?
+  constraints      String?
+  solutionProposed String?
+  status           String            @default("À faire")
+  priority         String            @default("Moyenne")
+  priorityScore    Int               @default(0)
+  estimatedTime    Int               @default(0)
+  actualTime       Int               @default(0)
+  budget           Float             @default(0)
+  budgetSpent      Float             @default(0)
+  timerStartedAt   DateTime?
+  timerRunning     Boolean           @default(false)
+  dueDate          DateTime?
+  startedAt        DateTime?
+  completedAt      DateTime?
+  order            Int               @default(0)
+  assigneeId       String?
+  assigneeName     String?
+  projectId        String
+  parentId         String?
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime
+  ActivityHistory  ActivityHistory[]
+  Comment          Comment[]
+  Expense          Expense[]
+  SubTask          SubTask[]
+  Project          Project           @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  TaskFile         TaskFile[]
+  TimerSession     TimerSession[]
+}
+
+model TaskFile {
+  id         String   @id
+  name       String
+  path       String
+  type       String
+  size       Int
+  taskId     String
+  uploadedBy String?
+  createdAt  DateTime @default(now())
+  Task       Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+}
+
+model TaskTemplate {
+  id              String          @id
+  title           String
+  description     String?
+  defaultPriority String          @default("Moyenne")
+  estimatedDays   Int             @default(1)
+  order           Int             @default(0)
+  templateId      String
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime
+  ProjectTemplate ProjectTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+}
+
+model TimerSession {
+  id        String    @id
+  taskId    String
+  startedAt DateTime
+  stoppedAt DateTime?
+  duration  Int       @default(0)
+  createdAt DateTime  @default(now())
+  Task      Task      @relation(fields: [taskId], references: [id], onDelete: Cascade)
+}
+
+model User {
+  id            String    @id
+  email         String    @unique
+  name          String?
+  password      String?
+  role          String    @default("membre")
+  avatar        String?
+  phone         String?
+  position      String?
+  department    String?
+  bio           String?
+  skills        String?
+  experience    String?   // JSON: [{title, company, startDate, endDate, description}]
+  education     String?   // JSON: [{degree, school, year, field}]
+  certifications String?  // JSON: [{name, issuer, year, url}]
+  preferences   String?
+  isActive      Boolean   @default(true)
+  lastLoginAt   DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime
+  Session       Session[]
+}
