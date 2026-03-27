@@ -41,8 +41,22 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="fr" suppressHydrationWarning>
+      <head>
+        {/* Script inline pour définir le fond AVANT tout chargement - protection anti-flash maximale */}
+        <style dangerouslySetInnerHTML={{ __html: `
+          html, body, #__next, #__next > div, div[min-h-screen] {
+            background-color: #1a2744 !important;
+            background: #1a2744 !important;
+          }
+          * {
+            border-color: rgba(255, 255, 255, 0.1);
+          }
+        `}} />
+      </head>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased bg-background text-foreground`}
+        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+        style={{ backgroundColor: '#1a2744' }}
+        suppressHydrationWarning
       >
         {children}
         <Toaster />

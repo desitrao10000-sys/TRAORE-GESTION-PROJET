@@ -37,7 +37,8 @@ export function Header({ currentPage, onNavigate, user, onLogout, onMenuClick }:
   const [showUserMenu, setShowUserMenu] = useState(false)
 
   useEffect(() => {
-    checkBackupStatus()
+    // Ne pas vérifier le backup au démarrage pour éviter les flashs
+    // checkBackupStatus()
   }, [])
 
   const checkBackupStatus = async () => {

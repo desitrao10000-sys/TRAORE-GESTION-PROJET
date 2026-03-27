@@ -90,7 +90,7 @@ export function Sidebar({
           bg-gradient-to-b from-[#1e3a5f] to-[#1a2744] border-r border-blue-400/30
           flex flex-col shadow-xl shadow-blue-900/30
           z-50 lg:z-auto
-          transition-transform duration-300 ease-in-out
+          transition-transform duration-200 ease-out
           ${isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
           h-full
         `}
