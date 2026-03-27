@@ -164,3 +164,35 @@ prisma:query SELECT `main`.`SubTask`.`id`, `main`.`SubTask`.`title`, `main`.`Sub
 prisma:query SELECT `main`.`TaskFile`.`id`, `main`.`TaskFile`.`name`, `main`.`TaskFile`.`path`, `main`.`TaskFile`.`type`, `main`.`TaskFile`.`size`, `main`.`TaskFile`.`taskId`, `main`.`TaskFile`.`uploadedBy`, `main`.`TaskFile`.`createdAt` FROM `main`.`TaskFile` WHERE `main`.`TaskFile`.`taskId` IN (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?) LIMIT ? OFFSET ?
 prisma:query SELECT `main`.`Session`.`id`, `main`.`Session`.`userId`, `main`.`Session`.`token`, `main`.`Session`.`expiresAt`, `main`.`Session`.`createdAt` FROM `main`.`Session` WHERE (`main`.`Session`.`token` = ? AND 1=1) LIMIT ? OFFSET ?
 prisma:query SELECT `main`.`User`.`id`, `main`.`User`.`email`, `main`.`User`.`name`, `main`.`User`.`password`, `main`.`User`.`role`, `main`.`User`.`avatar`, `main`.`User`.`phone`, `main`.`User`.`position`, `main`.`User`.`department`, `main`.`User`.`bio`, `main`.`User`.`skills`, `main`.`User`.`experience`, `main`.`User`.`education`, `main`.`User`.`certifications`, `main`.`User`.`preferences`, `main`.`User`.`isActive`, `main`.`User`.`lastLoginAt`, `main`.`User`.`createdAt`, `main`.`User`.`updatedAt` FROM `main`.`User` WHERE `main`.`User`.`id` IN (?) LIMIT ? OFFSET ?
+bun install v1.3.10 (30e609e0)
+[0.08ms] ".env"
+bun install v1.3.10 (30e609e0)
+Saved lockfile
+
+Checked 881 installs across 949 packages (no changes) [42.00ms]
+$ prisma db push
+Failed to load config file "/home/z/my-project" as a TypeScript/JavaScript module. Error: Error: ENOTDIR: not a directory, lstat '/home/z/my-project/.config/prisma'
+error: script "db:push" exited with code 1
+Building production version...
+$ next build && cp -r .next/static .next/standalone/.next/ && cp -r public .next/standalone/
+⨯ Unable to acquire lock at /home/z/my-project/.next/lock, is another instance of next build running?
+  Suggestion: If you intended to restart next build, terminate the other process, and then try again.
+error: script "build" exited with code 1
+node:internal/modules/cjs/loader:1424
+  throw err;
+  ^
+
+Error: Cannot find module '/home/z/my-project/.next/standalone/server.js'
+    at Module._resolveFilename (node:internal/modules/cjs/loader:1421:15)
+    at defaultResolveImpl (node:internal/modules/cjs/loader:1059:19)
+    at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1064:22)
+    at Module._load (node:internal/modules/cjs/loader:1227:37)
+    at TracingChannel.traceSync (node:diagnostics_channel:328:14)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:245:24)
+    at Module.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:154:5)
+    at node:internal/main/run_main_module:33:47 {
+  code: 'MODULE_NOT_FOUND',
+  requireStack: []
+}
+
+Node.js v24.13.0
