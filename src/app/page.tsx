@@ -299,15 +299,24 @@ export default function Home() {
     await fetchData(false)
   }, [fetchData])
 
-  // Timeout pour le chargement
+  // Timeout pour le chargement initial uniquement
   const [forceShow, setForceShow] = useState(false)
+  const [initialLoadDone, setInitialLoadDone] = useState(false)
   
   useEffect(() => {
     const timer = setTimeout(() => setForceShow(true), 3000)
     return () => clearTimeout(timer)
   }, [])
 
-  if ((!hydrated || checkingAuth) && !forceShow) {
+  // Marquer le chargement initial comme terminé après la première livraison de données
+  useEffect(() => {
+    if (!loading && isAuthenticated) {
+      setInitialLoadDone(true)
+    }
+  }, [loading, isAuthenticated])
+
+  // Écran de chargement initial uniquement (avant première authentification)
+  if ((!hydrated || checkingAuth) && !forceShow && !initialLoadDone) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-[#1a2744] via-[#1e3a5f] to-[#0f1225] flex items-center justify-center">
         <div className="text-center">
@@ -322,7 +331,8 @@ export default function Home() {
     return <LoginPage onLogin={handleLogin} />
   }
 
-  if (loading) {
+  // Écran de chargement des données uniquement lors du premier chargement
+  if (loading && !initialLoadDone) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-[#1a2744] via-[#1e3a5f] to-[#0f1225] flex items-center justify-center">
         <div className="text-center">
