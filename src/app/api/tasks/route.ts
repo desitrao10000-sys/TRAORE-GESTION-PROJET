@@ -24,6 +24,9 @@ export async function GET(request: Request) {
           select: { id: true, name: true, status: true }
         },
         SubTask: true,
+        Comment: {
+          orderBy: { createdAt: 'desc' }
+        },
         TaskFile: true,
         _count: {
           select: { SubTask: true, Comment: true }
@@ -35,7 +38,16 @@ export async function GET(request: Request) {
       ]
     })
     
-    return NextResponse.json({ success: true, data: tasks })
+    // Transform to match frontend interface (lowercase field names)
+    const transformedTasks = tasks.map(task => ({
+      ...task,
+      project: task.Project,
+      subtasks: task.SubTask,
+      comments: task.Comment,
+      taskFiles: task.TaskFile
+    }))
+    
+    return NextResponse.json({ success: true, data: transformedTasks })
   } catch (error) {
     console.error('Error fetching tasks:', error)
     return NextResponse.json({ success: false, error: 'Erreur lors de la récupération des tâches' }, { status: 500 })
@@ -108,8 +120,14 @@ export async function POST(request: Request) {
         updatedAt: now
       },
       include: {
-        Project: true,
-        SubTask: true
+        Project: {
+          select: { id: true, name: true, status: true }
+        },
+        SubTask: true,
+        Comment: {
+          orderBy: { createdAt: 'desc' }
+        },
+        TaskFile: true
       }
     })
 
@@ -131,7 +149,16 @@ export async function POST(request: Request) {
       // Don't fail the task creation if history fails
     }
 
-    return NextResponse.json({ success: true, data: task })
+    // Transform to match frontend interface (lowercase field names)
+    const transformedTask = {
+      ...task,
+      project: task.Project,
+      subtasks: task.SubTask,
+      comments: task.Comment,
+      taskFiles: task.TaskFile
+    }
+
+    return NextResponse.json({ success: true, data: transformedTask })
   } catch (error) {
     console.error('Error creating task:', error)
     return NextResponse.json({ success: false, error: 'Erreur lors de la création de la tâche: ' + (error instanceof Error ? error.message : 'Erreur inconnue') }, { status: 500 })

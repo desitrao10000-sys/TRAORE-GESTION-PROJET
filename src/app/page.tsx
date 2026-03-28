@@ -1,10 +1,10 @@
 'use client'
 
 // NGP - New Gestion Projet - Page principale
-// Version: 3.0 - Optimisation anti-flash complète
+// Version: 4.0 - Sans vérification d'hydration pour éviter l'écran noir
 
 import { useState, useEffect, useCallback, useMemo } from 'react'
-import { useAppStore, useHydration, AuthUser } from '@/store/appStore'
+import { useAppStore, AuthUser } from '@/store/appStore'
 import { Header } from '@/components/app/Header'
 import { Sidebar } from '@/components/app/Sidebar'
 import { DashboardOverview } from '@/components/app/DashboardOverview'
@@ -36,7 +36,6 @@ const LoadingScreen = () => (
 
 export default function Home() {
   // État du store
-  const hydrated = useHydration()
   const {
     user,
     isAuthenticated,
@@ -61,8 +60,10 @@ export default function Home() {
   const [risks, setRisks] = useState<Risk[]>([])
   const [selectedProject, setSelectedProject] = useState<Project | null>(null)
   const [dataLoaded, setDataLoaded] = useState(false)
+  const [authChecked, setAuthChecked] = useState(false)
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [isMobile, setIsMobile] = useState(false)
+  const [refreshKey, setRefreshKey] = useState(0)
 
   // Détecter mobile
   useEffect(() => {
@@ -94,10 +95,8 @@ export default function Home() {
     }
   }
 
-  // Vérifier l'authentification une seule fois
+  // Vérifier l'authentification une seule fois au montage
   useEffect(() => {
-    if (!hydrated) return
-    
     const checkAuth = async () => {
       try {
         const res = await fetch('/api/auth/me')
@@ -109,11 +108,13 @@ export default function Home() {
         }
       } catch (error) {
         console.error('Auth check error:', error)
+      } finally {
+        setAuthChecked(true)
       }
     }
     
     checkAuth()
-  }, [hydrated, setUser])
+  }, [setUser])
 
   // Charger les données une seule fois après authentification
   useEffect(() => {
@@ -151,7 +152,6 @@ export default function Home() {
 
   // Charger le projet sélectionné
   useEffect(() => {
-    // Si pas de projet sélectionné, ne rien faire
     if (!selectedProjectId) {
       return
     }
@@ -226,6 +226,9 @@ export default function Home() {
       if (projectsData.success) setProjects(projectsData.data)
       if (tasksData.success) setTasks(tasksData.data)
       if (risksData.success) setRisks(risksData.data)
+      
+      // Force refresh of calendar and gantt components
+      setRefreshKey(prev => prev + 1)
     } catch (error) {
       console.error('Error refreshing data:', error)
     }
@@ -248,8 +251,8 @@ export default function Home() {
     [projects, selectedFolderId]
   )
 
-  // Affichage
-  if (!hydrated) {
+  // Afficher la page de connexion si pas authentifié (après vérification)
+  if (!authChecked) {
     return <LoadingScreen />
   }
 
@@ -326,16 +329,18 @@ export default function Home() {
                 <ReportsExport tasks={tasks} projects={projects} risks={risks} />
               )}
               {dashboardTab === 'gantt' && (
-                <GanttView projects={projects} tasks={tasks} onProjectClick={handleProjectClick} />
+                <GanttView key={refreshKey} projects={projects} tasks={tasks} onProjectClick={handleProjectClick} />
               )}
-              {dashboardTab === 'calendar' && <DashboardCalendar tasks={tasks} projects={projects} />}
+              {dashboardTab === 'calendar' && (
+                <DashboardCalendar key={refreshKey} tasks={tasks} projects={projects} />
+              )}
             </>
           )}
           
           {/* Projects */}
           {currentPage === 'projects' && (
             selectedProjectId && selectedProject ? (
-              <ProjectDetail project={selectedProject} onBack={handleBackToProjects} />
+              <ProjectDetail project={selectedProject} onBack={handleBackToProjects} onProjectUpdate={refreshData} />
             ) : (
               <ProjectsList
                 projects={filteredProjects}

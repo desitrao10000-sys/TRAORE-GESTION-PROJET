@@ -73,3 +73,43 @@ Stage Summary:
 - Logo NGP accessible via /logo.png (31KB, image/png)
 - Application "NGP - New Gestion Projet" correctement servie
 - L'utilisateur peut voir l'application via le Panneau de Prévisualisation
+
+---
+Task ID: 5
+Agent: Main Agent
+Task: Affichage des commentaires dans la vue Calendrier
+
+Work Log:
+- Analyse du problème: DashboardCalendar n'affichait que le nombre de commentaires, pas leur contenu
+- Ajout du type Comment dans types/index.ts (id, content, authorId, authorName, taskId, createdAt, etc.)
+- Mise à jour du type Task pour inclure un tableau comments?: Comment[]
+- Modification de l'API /api/tasks pour inclure les commentaires dans la requête (include: { Comment: { orderBy: { createdAt: 'desc' } } })
+- Ajout de l'icône MessageSquare dans DashboardCalendar.tsx
+- Création de la section commentaires dans le panneau de détails des tâches du calendrier
+- Affichage du nom de l'auteur, de la date et du contenu de chaque commentaire
+
+Stage Summary:
+- Type Comment ajouté au système de types
+- API /api/tasks renvoie maintenant les commentaires complets
+- DashboardCalendar affiche les commentaires avec auteur, date et contenu
+- Cohérence avec DailyTodoList qui utilise déjà CommentSection
+
+---
+Task ID: 6
+Agent: Main Agent
+Task: Correction du rafraîchissement Calendrier et Gantt après création de tâche
+
+Work Log:
+- Analyse du flux de création de tâches dans DailyTodoList
+- Vérification que handleCreateTask appelle bien handleTaskUpdate
+- Vérification que refreshData met à jour l'état tasks
+- Identification du problème: React pouvait ne pas détecter le changement de données
+- Ajout d'un state refreshKey dans page.tsx
+- Modification de refreshData pour incrémenter refreshKey après chaque mise à jour
+- Ajout de la prop key={refreshKey} aux composants GanttView et DashboardCalendar
+- Cela force React à re-créer complètement les composants avec les nouvelles données
+
+Stage Summary:
+- Nouveau state refreshKey ajouté pour forcer le re-rendu
+- Les composants Calendrier et Gantt se mettent maintenant à jour automatiquement
+- Quand une tâche est créée dans TODO List, elle apparaît immédiatement dans Calendrier et Gantt

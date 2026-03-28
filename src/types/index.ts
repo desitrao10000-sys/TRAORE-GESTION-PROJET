@@ -58,6 +58,19 @@ export interface SubTask {
   updatedAt: Date
 }
 
+// Comment (Commentaire)
+export interface Comment {
+  id: string
+  content: string
+  authorId: string | null
+  authorName: string
+  projectId: string | null
+  taskId: string | null
+  mentions: string | null
+  createdAt: string | Date
+  updatedAt: string | Date
+}
+
 // Task (Tâche)
 export interface Task {
   id: string
@@ -81,6 +94,7 @@ export interface Task {
   createdAt: Date
   updatedAt: Date
   subtasks?: SubTask[]
+  comments?: Comment[]
   _count?: {
     comments: number
     subtasks: number

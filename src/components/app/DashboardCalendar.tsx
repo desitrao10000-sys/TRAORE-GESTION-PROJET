@@ -10,13 +10,7 @@ import {
   AlertCircle,
   Circle,
   User,
-  Calendar,
   DollarSign,
-  FileText,
-  Target,
-  AlertTriangle,
-  Lightbulb,
-  ListTodo,
   MessageSquare
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -310,138 +304,105 @@ export function DashboardCalendar({ tasks, projects, onTaskClick }: DashboardCal
                         </Badge>
                       </div>
 
-                      {/* Priorité */}
-                      <div className="flex items-center gap-2">
-                        <Badge className={`${getPriorityBgLight(task.priority)} border-0 text-xs font-medium`}>
-                          {task.priority}
-                        </Badge>
-                      </div>
-
-                      {/* Projet */}
-                      <div className="flex items-center gap-2 text-sm">
-                        <FileText className="w-4 h-4 text-blue-400" />
-                        <span className="text-gray-400">Projet:</span>
-                        <span className="text-white font-medium">{project?.name || 'Projet inconnu'}</span>
-                      </div>
-
-                      {/* Responsable */}
-                      <div className="flex items-center gap-2 text-sm">
-                        <User className="w-4 h-4 text-green-400" />
-                        <span className="text-gray-400">Responsable:</span>
-                        <span className="text-white">{task.assigneeName || 'Non assigné'}</span>
-                      </div>
-
-                      {/* Date d'échéance */}
-                      <div className="flex items-center gap-2 text-sm">
-                        <Calendar className="w-4 h-4 text-amber-400" />
-                        <span className="text-gray-400">Échéance:</span>
-                        <span className="text-white">
-                          {task.dueDate ? format(new Date(task.dueDate), 'd MMMM yyyy', { locale: fr }) : 'N/A'}
-                        </span>
-                      </div>
-
-                      {/* Budget */}
-                      <div className="bg-blue-900/30 rounded-lg p-3 space-y-2">
-                        <div className="flex items-center gap-2 text-sm font-medium text-amber-400">
-                          <DollarSign className="w-4 h-4" />
-                          Budget de la tâche
+                      {/* Format identique à la TODO List */}
+                      <div className="space-y-3">
+                        {/* Tâche */}
+                        <div className="flex flex-col sm:flex-row sm:items-start gap-1 sm:gap-2">
+                          <span className="text-amber-400 font-semibold text-sm min-w-[100px] sm:min-w-[120px]">📝 Tâche:</span>
+                          <span className="text-white text-sm break-words flex-1">{task.title}</span>
                         </div>
-                        <div className="grid grid-cols-2 gap-2 text-sm">
-                          <div>
-                            <span className="text-gray-400">Budget prévu:</span>
-                            <p className="text-white font-medium">{formatCurrency(task.budget || 0)}</p>
+
+                        {/* Projet */}
+                        <div className="flex flex-col sm:flex-row sm:items-start gap-1 sm:gap-2">
+                          <span className="text-blue-400 font-semibold text-sm min-w-[100px] sm:min-w-[120px]">📁 Projet:</span>
+                          <span className="text-blue-200 text-sm break-words">{project?.name || 'Sans projet'}</span>
+                        </div>
+
+                        {/* Description */}
+                        <div className="flex flex-col sm:flex-row sm:items-start gap-1 sm:gap-2">
+                          <span className="text-gray-400 font-semibold text-sm min-w-[100px] sm:min-w-[120px]">📄 Description:</span>
+                          <span className="text-gray-300 text-sm break-words flex-1">{task.description || <span className="text-gray-500 italic">Non renseignée</span>}</span>
+                        </div>
+
+                        {/* Objectifs */}
+                        <div className="flex flex-col sm:flex-row sm:items-start gap-1 sm:gap-2">
+                          <span className="text-green-400 font-semibold text-sm min-w-[100px] sm:min-w-[120px]">🎯 Objectif:</span>
+                          <span className="text-green-200 text-sm break-words flex-1">{task.objectives || <span className="text-gray-500 italic">Non renseigné</span>}</span>
+                        </div>
+
+                        {/* Contraintes */}
+                        <div className="flex flex-col sm:flex-row sm:items-start gap-1 sm:gap-2">
+                          <span className="text-orange-400 font-semibold text-sm min-w-[100px] sm:min-w-[120px]">⚠️ Contraintes:</span>
+                          <span className="text-orange-200 text-sm break-words flex-1">{task.constraints || <span className="text-gray-500 italic">Non renseignées</span>}</span>
+                        </div>
+
+                        {/* Solution proposée */}
+                        <div className="flex flex-col sm:flex-row sm:items-start gap-1 sm:gap-2">
+                          <span className="text-emerald-400 font-semibold text-sm min-w-[100px] sm:min-w-[120px]">💡 Solution:</span>
+                          <span className="text-emerald-200 text-sm break-words flex-1">{task.solutionProposed || <span className="text-gray-500 italic">Non renseignée</span>}</span>
+                        </div>
+
+                        {/* Priorité et Responsable */}
+                        <div className="flex items-center gap-4 pt-2 border-t border-blue-400/10">
+                          <Badge className={`${getPriorityBgLight(task.priority)} border-0 text-xs font-medium`}>
+                            {task.priority}
+                          </Badge>
+                          {task.assigneeName && (
+                            <div className="flex items-center gap-1 text-sm text-gray-400">
+                              <User className="w-4 h-4" />
+                              {task.assigneeName}
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Budget */}
+                        <div className="bg-blue-900/30 rounded-lg p-3 space-y-2">
+                          <div className="flex items-center gap-2 text-sm font-medium text-amber-400">
+                            <DollarSign className="w-4 h-4" />
+                            Budget de la tâche
                           </div>
-                          <div>
-                            <span className="text-gray-400">Dépenses:</span>
-                            <p className="text-red-400 font-medium">{formatCurrency(task.budgetSpent || 0)}</p>
+                          <div className="grid grid-cols-2 gap-2 text-sm">
+                            <div>
+                              <span className="text-gray-400">Budget prévu:</span>
+                              <p className="text-white font-medium">{formatCurrency(task.budget || 0)}</p>
+                            </div>
+                            <div>
+                              <span className="text-gray-400">Dépenses:</span>
+                              <p className="text-red-400 font-medium">{formatCurrency(task.budgetSpent || 0)}</p>
+                            </div>
+                          </div>
+                          <div className="text-sm">
+                            <span className="text-gray-400">Reste disponible:</span>
+                            <p className={`font-bold ${(task.budget || 0) - (task.budgetSpent || 0) >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                              {formatCurrency((task.budget || 0) - (task.budgetSpent || 0))}
+                            </p>
                           </div>
                         </div>
-                        <div className="text-sm">
-                          <span className="text-gray-400">Reste disponible:</span>
-                          <p className={`font-bold ${(task.budget || 0) - (task.budgetSpent || 0) >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                            {formatCurrency((task.budget || 0) - (task.budgetSpent || 0))}
-                          </p>
-                        </div>
-                      </div>
 
-                      {/* Description */}
-                      {task.description && (
-                        <div className="space-y-1">
-                          <div className="flex items-center gap-2 text-sm font-medium text-blue-300">
-                            <FileText className="w-4 h-4" />
-                            Description
-                          </div>
-                          <p className="text-sm text-gray-300 bg-blue-900/20 p-2 rounded whitespace-pre-wrap">
-                            {task.description}
-                          </p>
-                        </div>
-                      )}
-
-                      {/* Objectifs */}
-                      {task.objectives && (
-                        <div className="space-y-1">
-                          <div className="flex items-center gap-2 text-sm font-medium text-green-300">
-                            <Target className="w-4 h-4" />
-                            Objectifs
-                          </div>
-                          <p className="text-sm text-gray-300 bg-blue-900/20 p-2 rounded whitespace-pre-wrap">
-                            {task.objectives}
-                          </p>
-                        </div>
-                      )}
-
-                      {/* Contraintes */}
-                      {task.constraints && (
-                        <div className="space-y-1">
-                          <div className="flex items-center gap-2 text-sm font-medium text-orange-300">
-                            <AlertTriangle className="w-4 h-4" />
-                            Contraintes
-                          </div>
-                          <p className="text-sm text-gray-300 bg-blue-900/20 p-2 rounded whitespace-pre-wrap">
-                            {task.constraints}
-                          </p>
-                        </div>
-                      )}
-
-                      {/* Solution proposée */}
-                      {task.solutionProposed && (
-                        <div className="space-y-1">
-                          <div className="flex items-center gap-2 text-sm font-medium text-yellow-300">
-                            <Lightbulb className="w-4 h-4" />
-                            Solution proposée
-                          </div>
-                          <p className="text-sm text-gray-300 bg-blue-900/20 p-2 rounded whitespace-pre-wrap">
-                            {task.solutionProposed}
-                          </p>
-                        </div>
-                      )}
-
-                      {/* Sous-tâches */}
-                      {task.subtasks && task.subtasks.length > 0 && (
+                        {/* Commentaires */}
                         <div className="space-y-2">
-                          <div className="flex items-center gap-2 text-sm font-medium text-cyan-300">
-                            <ListTodo className="w-4 h-4" />
-                            Sous-tâches ({task.subtasks.filter(s => s.isCompleted).length}/{task.subtasks.length})
+                          <div className="flex items-center gap-2 text-sm font-medium text-purple-300">
+                            <MessageSquare className="w-4 h-4" />
+                            Commentaires {task.comments && task.comments.length > 0 ? `(${task.comments.length})` : ''}
                           </div>
-                          <div className="space-y-1">
-                            {task.subtasks.map(sub => (
-                              <div key={sub.id} className="flex items-center gap-2 text-sm">
-                                <div className={`w-4 h-4 rounded flex items-center justify-center ${sub.isCompleted ? 'bg-green-500' : 'bg-gray-600'}`}>
-                                  {sub.isCompleted && <CheckCircle2 className="w-3 h-3 text-white" />}
+                          {task.comments && task.comments.length > 0 ? (
+                            <div className="space-y-2 max-h-40 overflow-y-auto pr-2">
+                              {task.comments.map(comment => (
+                                <div key={comment.id} className="bg-[#0f1c2e]/50 rounded-lg p-2 space-y-1">
+                                  <div className="flex items-center justify-between">
+                                    <span className="text-xs font-semibold text-amber-300">{comment.authorName}</span>
+                                    <span className="text-xs text-gray-500">
+                                      {format(new Date(comment.createdAt), 'd MMM yyyy', { locale: fr })}
+                                    </span>
+                                  </div>
+                                  <p className="text-sm text-gray-300 break-words">{comment.content}</p>
                                 </div>
-                                <span className={sub.isCompleted ? 'text-gray-400 line-through' : 'text-gray-300'}>
-                                  {sub.title}
-                                </span>
-                              </div>
-                            ))}
-                          </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <p className="text-sm text-gray-500 italic">Aucun commentaire pour cette tâche</p>
+                          )}
                         </div>
-                      )}
-
-                      {/* Commentaires */}
-                      <div className="flex items-center gap-2 text-sm text-gray-400 pt-2 border-t border-blue-400/10">
-                        <MessageSquare className="w-4 h-4" />
-                        <span>{task._count?.comments || 0} commentaire(s)</span>
                       </div>
                     </div>
                   )

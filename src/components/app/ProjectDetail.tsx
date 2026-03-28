@@ -17,18 +17,27 @@ import {
   Flag,
   MessageSquare,
   Target,
-  ChevronRight
+  ChevronRight,
+  ChevronDown,
+  Pencil
 } from 'lucide-react'
-import { Project } from '@/types'
+import { Project, Task } from '@/types'
 import { format } from 'date-fns'
 import { fr } from 'date-fns/locale'
 import { CommentSection } from './CommentSection'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
+import { useToast } from '@/hooks/use-toast'
+import { Loader2 } from 'lucide-react'
 
 interface ProjectDetailProps {
   project: Project
   onBack: () => void
+  onProjectUpdate?: () => void
 }
 
 type ProjectTab = 'tasks' | 'team' | 'budget' | 'risks' | 'comments'
@@ -41,8 +50,64 @@ interface Milestone {
   completed: boolean
 }
 
-export function ProjectDetail({ project, onBack }: ProjectDetailProps) {
+// Edit field types
+type EditableField = 'title' | 'description' | 'objectives' | 'constraints' | 'solutionProposed'
+
+export function ProjectDetail({ project, onBack, onProjectUpdate }: ProjectDetailProps) {
   const [activeTab, setActiveTab] = useState<ProjectTab>('tasks')
+  const [expandedTask, setExpandedTask] = useState<string | null>(null)
+  const [editTaskModal, setEditTaskModal] = useState<{task: Task, field: EditableField, value: string} | null>(null)
+  const [saving, setSaving] = useState(false)
+  const { toast } = useToast()
+
+  // Modifier un champ de tâche
+  const handleEditTask = async () => {
+    if (!editTaskModal) return
+    if (editTaskModal.field === 'title' && !editTaskModal.value?.trim()) {
+      toast({ title: 'Le titre est requis', variant: 'destructive' })
+      return
+    }
+    setSaving(true)
+    try {
+      const res = await fetch('/api/tasks', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: editTaskModal.task.id,
+          [editTaskModal.field]: editTaskModal.value.trim() || null
+        })
+      })
+      const data = await res.json()
+      if (data.success) {
+        const fieldNames: Record<EditableField, string> = { 
+          title: 'Tâche', 
+          description: 'Description', 
+          objectives: 'Objectif',
+          constraints: 'Contraintes',
+          solutionProposed: 'Solution'
+        }
+        toast({ title: `✅ ${fieldNames[editTaskModal.field]} modifié(e) avec succès !` })
+        setEditTaskModal(null)
+        if (onProjectUpdate) onProjectUpdate()
+      } else {
+        toast({ title: '❌ Erreur lors de la modification', variant: 'destructive' })
+      }
+    } catch (error) {
+      toast({ title: '❌ Erreur de connexion', variant: 'destructive' })
+    } finally { setSaving(false) }
+  }
+
+  // Ouvrir le modal d'édition
+  const openEditModal = (task: Task, field: EditableField) => {
+    const values: Record<EditableField, string> = {
+      title: task.title || '',
+      description: task.description || '',
+      objectives: task.objectives || '',
+      constraints: task.constraints || '',
+      solutionProposed: task.solutionProposed || ''
+    }
+    setEditTaskModal({ task, field, value: values[field] })
+  }
 
   // Formater le montant en CFA
   const formatCurrency = (amount: number) => {
@@ -112,6 +177,121 @@ export function ProjectDetail({ project, onBack }: ProjectDetailProps) {
     { key: 'risks', label: 'Risques', icon: <AlertTriangle className="w-4 h-4" /> },
     { key: 'comments', label: 'Commentaires', icon: <MessageSquare className="w-4 h-4" /> }
   ]
+
+  // Composant carte de tâche extensible
+  const TaskCard = ({ task }: { task: Task }) => {
+    const isExpanded = expandedTask === task.id
+    
+    return (
+      <div className="bg-gradient-to-br from-[#1e3a5f] to-[#1a2744] rounded-lg border border-blue-400/10 hover:border-blue-400/30 transition-colors overflow-hidden">
+        {/* Header de la carte */}
+        <div 
+          className="p-3 cursor-pointer"
+          onClick={() => setExpandedTask(isExpanded ? null : task.id)}
+        >
+          <div className="flex items-start justify-between gap-2">
+            <div className="flex-1 min-w-0">
+              <p className="text-white text-sm font-medium truncate">{task.title}</p>
+              <div className="flex items-center gap-2 mt-2">
+                {task.dueDate && (
+                  <span className="text-xs text-blue-300/70">
+                    {format(new Date(task.dueDate), 'd MMM', { locale: fr })}
+                  </span>
+                )}
+                {task.assigneeName && (
+                  <span className="text-xs text-blue-200">{task.assigneeName}</span>
+                )}
+              </div>
+            </div>
+            <button className="text-gray-400 hover:text-white transition-colors p-1 flex-shrink-0">
+              <ChevronDown className={`w-4 h-4 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
+            </button>
+          </div>
+        </div>
+
+        {/* Contenu extensible */}
+        {isExpanded && (
+          <div className="border-t border-blue-400/10 p-3 space-y-3">
+            {/* Tâche (titre) */}
+            <div className="flex flex-col sm:flex-row sm:items-start gap-1 sm:gap-2">
+              <span className="text-amber-400 font-semibold text-sm min-w-[100px] sm:min-w-[120px]">📝 Tâche:</span>
+              <span className="text-white text-sm break-words flex-1">{task.title}</span>
+              <button 
+                type="button"
+                onClick={(e) => { e.stopPropagation(); openEditModal(task, 'title'); }}
+                className="p-1.5 text-amber-400 hover:text-amber-300 hover:bg-amber-500/20 rounded transition-colors self-start"
+                title="Modifier la tâche"
+              >
+                <Pencil className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Projet */}
+            <div className="flex flex-col sm:flex-row sm:items-start gap-1 sm:gap-2">
+              <span className="text-blue-400 font-semibold text-sm min-w-[100px] sm:min-w-[120px]">📁 Projet:</span>
+              <span className="text-blue-200 text-sm break-words">{project.name}</span>
+            </div>
+
+            {/* Description */}
+            <div className="flex flex-col sm:flex-row sm:items-start gap-1 sm:gap-2">
+              <span className="text-gray-400 font-semibold text-sm min-w-[100px] sm:min-w-[120px]">📄 Description:</span>
+              <span className="text-gray-300 text-sm break-words flex-1">{task.description || <span className="text-gray-500 italic">Non renseignée</span>}</span>
+              <button 
+                type="button"
+                onClick={(e) => { e.stopPropagation(); openEditModal(task, 'description'); }}
+                className="p-1.5 text-gray-400 hover:text-gray-300 hover:bg-gray-500/20 rounded transition-colors self-start"
+                title="Modifier la description"
+              >
+                <Pencil className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Objectifs */}
+            <div className="flex flex-col sm:flex-row sm:items-start gap-1 sm:gap-2">
+              <span className="text-green-400 font-semibold text-sm min-w-[100px] sm:min-w-[120px]">🎯 Objectif:</span>
+              <span className="text-green-200 text-sm break-words flex-1">{task.objectives || <span className="text-gray-500 italic">Non renseigné</span>}</span>
+              <button 
+                type="button"
+                onClick={(e) => { e.stopPropagation(); openEditModal(task, 'objectives'); }}
+                className="p-1.5 text-green-400 hover:text-green-300 hover:bg-green-500/20 rounded transition-colors self-start"
+                title="Modifier l'objectif"
+              >
+                <Pencil className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Contraintes */}
+            <div className="flex flex-col sm:flex-row sm:items-start gap-1 sm:gap-2">
+              <span className="text-orange-400 font-semibold text-sm min-w-[100px] sm:min-w-[120px]">⚠️ Contraintes:</span>
+              <span className="text-orange-200 text-sm break-words flex-1">{task.constraints || <span className="text-gray-500 italic">Non renseignées</span>}</span>
+              <button 
+                type="button"
+                onClick={(e) => { e.stopPropagation(); openEditModal(task, 'constraints'); }}
+                className="p-1.5 text-orange-400 hover:text-orange-300 hover:bg-orange-500/20 rounded transition-colors self-start"
+                title="Modifier les contraintes"
+              >
+                <Pencil className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Solution proposée */}
+            <div className="flex flex-col sm:flex-row sm:items-start gap-1 sm:gap-2">
+              <span className="text-emerald-400 font-semibold text-sm min-w-[100px] sm:min-w-[120px]">💡 Solution:</span>
+              <span className="text-emerald-200 text-sm break-words flex-1">{task.solutionProposed || <span className="text-gray-500 italic">Non renseignée</span>}</span>
+              <button 
+                type="button"
+                onClick={(e) => { e.stopPropagation(); openEditModal(task, 'solutionProposed'); }}
+                className="p-1.5 text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/20 rounded transition-colors self-start"
+                title="Modifier la solution"
+              >
+                <Pencil className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-6">
@@ -290,27 +470,12 @@ export function ProjectDetail({ project, onBack }: ProjectDetailProps) {
                         <span className="font-medium text-white text-sm">{status}</span>
                         <span className="ml-auto text-blue-200 text-xs">{statusTasks.length}</span>
                       </div>
-                      <div className="p-2 space-y-2 max-h-64 overflow-y-auto">
+                      <div className="p-2 space-y-2 max-h-96 overflow-y-auto">
                         {statusTasks.length === 0 ? (
                           <p className="text-blue-300/50 text-xs text-center py-4">Aucune tâche</p>
                         ) : (
                           statusTasks.map((task) => (
-                            <div
-                              key={task.id}
-                              className="bg-gradient-to-br from-[#1e3a5f] to-[#1a2744] rounded-lg p-3 border border-blue-400/10 hover:border-blue-400/30 transition-colors cursor-pointer"
-                            >
-                              <p className="text-white text-sm font-medium">{task.title}</p>
-                              <div className="flex items-center justify-between mt-2">
-                                {task.dueDate && (
-                                  <span className="text-xs text-blue-300/70">
-                                    {format(new Date(task.dueDate), 'd MMM', { locale: fr })}
-                                  </span>
-                                )}
-                                {task.assigneeName && (
-                                  <span className="text-xs text-blue-200">{task.assigneeName}</span>
-                                )}
-                              </div>
-                            </div>
+                            <TaskCard key={task.id} task={task} />
                           ))
                         )}
                       </div>
@@ -512,6 +677,59 @@ export function ProjectDetail({ project, onBack }: ProjectDetailProps) {
           )}
         </div>
       </div>
+
+      {/* Modal d'édition */}
+      <Dialog open={!!editTaskModal} onOpenChange={() => setEditTaskModal(null)}>
+        <DialogContent className="bg-gradient-to-br from-[#1e3a5f] to-[#1a2744] border-blue-400/30 text-white">
+          <DialogHeader>
+            <DialogTitle className="text-amber-400">
+              {editTaskModal && (
+                <>
+                  {editTaskModal.field === 'title' && 'Modifier la tâche'}
+                  {editTaskModal.field === 'description' && 'Modifier la description'}
+                  {editTaskModal.field === 'objectives' && 'Modifier l\'objectif'}
+                  {editTaskModal.field === 'constraints' && 'Modifier les contraintes'}
+                  {editTaskModal.field === 'solutionProposed' && 'Modifier la solution'}
+                </>
+              )}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="py-4">
+            {editTaskModal?.field === 'title' ? (
+              <Input
+                value={editTaskModal.value}
+                onChange={(e) => setEditTaskModal({ ...editTaskModal, value: e.target.value })}
+                className="bg-[#0f1c2e] border-blue-400/30 text-white"
+                placeholder="Titre de la tâche"
+              />
+            ) : (
+              <Textarea
+                value={editTaskModal?.value || ''}
+                onChange={(e) => editTaskModal && setEditTaskModal({ ...editTaskModal, value: e.target.value })}
+                className="bg-[#0f1c2e] border-blue-400/30 text-white min-h-[120px]"
+                placeholder="Contenu..."
+              />
+            )}
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setEditTaskModal(null)}
+              className="border-blue-400/30 text-blue-200 hover:bg-blue-400/10"
+            >
+              Annuler
+            </Button>
+            <Button
+              onClick={handleEditTask}
+              disabled={saving}
+              className="bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-500 hover:to-amber-600 text-black font-semibold"
+            >
+              {saving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+              Enregistrer
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

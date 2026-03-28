@@ -19,9 +19,10 @@ interface Comment {
 interface CommentSectionProps {
   projectId?: string
   taskId?: string
+  onCommentChange?: () => void
 }
 
-export function CommentSection({ projectId, taskId }: CommentSectionProps) {
+export function CommentSection({ projectId, taskId, onCommentChange }: CommentSectionProps) {
   const { toast } = useToast()
   const [comments, setComments] = useState<Comment[]>([])
   const [newComment, setNewComment] = useState('')
@@ -82,6 +83,7 @@ export function CommentSection({ projectId, taskId }: CommentSectionProps) {
         setComments(prev => [data.data, ...prev])
         setNewComment('')
         toast({ title: 'Commentaire ajouté' })
+        if (onCommentChange) onCommentChange()
       } else {
         throw new Error(data.error)
       }
@@ -105,6 +107,7 @@ export function CommentSection({ projectId, taskId }: CommentSectionProps) {
       if (data.success) {
         setComments(prev => prev.filter(c => c.id !== commentId))
         toast({ title: 'Commentaire supprimé' })
+        if (onCommentChange) onCommentChange()
       }
     } catch (error) {
       toast({

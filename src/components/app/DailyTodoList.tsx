@@ -32,6 +32,7 @@ interface TodoItem {
   taskId: string
   taskTitle: string
   taskDescription?: string | null
+  taskObjectives?: string | null
   status: 'En cours' | 'En retard' | 'À venir' | 'Terminé'
   startDate?: Date | null
   deadline?: Date | null
@@ -68,7 +69,9 @@ const TodoItemComponent = memo(function TodoItemComponent({
   onEditExpense,
   onDeleteExpense,
   onDeleteTask,
-  onSetBudget
+  onSetBudget,
+  onEditField,
+  onTaskUpdate
 }: {
   todo: TodoItem
   isCompleted: boolean
@@ -82,6 +85,8 @@ const TodoItemComponent = memo(function TodoItemComponent({
   onDeleteExpense: (expense: Expense) => void
   onDeleteTask: () => void
   onSetBudget: () => void
+  onEditField: (field: 'title' | 'description' | 'objectives' | 'constraints' | 'solutionProposed') => void
+  onTaskUpdate?: () => void
 }) {
   const isOverdue = todo.status === 'En retard' || (todo.deadline && (() => {
     try {
@@ -171,25 +176,85 @@ const TodoItemComponent = memo(function TodoItemComponent({
             </div>
 
             {isExpanded && (
-              <div className="mt-4 space-y-3 border-t border-blue-400/10 pt-4 w-full max-w-full overflow-hidden">
-                {todo.taskDescription && (
-                  <p className="text-base text-gray-300 break-words">{todo.taskDescription}</p>
-                )}
-                {todo.constraints && (
-                  <div className="p-3 bg-orange-500/10 rounded-lg border border-orange-400/20">
-                    <p className="text-sm text-orange-300 flex items-center gap-1">
-                      <AlertTriangle className="w-4 h-4" />
-                      Contrainte: {todo.constraints}
-                    </p>
+              <div className="mt-4 space-y-4 border-t border-blue-400/10 pt-4 w-full max-w-full overflow-hidden">
+                {/* Informations principales */}
+                <div className="space-y-3">
+                  {/* Tâche */}
+                  <div className="flex flex-col sm:flex-row sm:items-start gap-1 sm:gap-2">
+                    <span className="text-amber-400 font-semibold text-sm sm:text-base min-w-[100px] sm:min-w-[120px]">📝 Tâche:</span>
+                    <span className="text-white text-sm sm:text-base break-words flex-1">{todo.taskTitle}</span>
+                    <button 
+                      type="button"
+                      onClick={() => onEditField('title')}
+                      className="p-1.5 text-amber-400 hover:text-amber-300 hover:bg-amber-500/20 rounded transition-colors self-start"
+                      title="Modifier la tâche"
+                    >
+                      <Pencil className="w-4 h-4" />
+                    </button>
                   </div>
-                )}
-                {todo.solution && (
-                  <div className="p-3 bg-green-500/10 rounded-lg border border-green-400/20">
-                    <p className="text-sm text-green-300">
-                      💡 Solution: {todo.solution}
-                    </p>
+                  
+                  {/* Projet */}
+                  <div className="flex flex-col sm:flex-row sm:items-start gap-1 sm:gap-2">
+                    <span className="text-blue-400 font-semibold text-sm sm:text-base min-w-[100px] sm:min-w-[120px]">📁 Projet:</span>
+                    <span className="text-blue-200 text-sm sm:text-base break-words">{todo.projectName}</span>
                   </div>
-                )}
+                  
+                  {/* Description */}
+                  <div className="flex flex-col sm:flex-row sm:items-start gap-1 sm:gap-2">
+                    <span className="text-gray-400 font-semibold text-sm sm:text-base min-w-[100px] sm:min-w-[120px]">📄 Description:</span>
+                    <span className="text-gray-300 text-sm sm:text-base break-words flex-1">{todo.taskDescription || <span className="text-gray-500 italic">Non renseignée</span>}</span>
+                    <button 
+                      type="button"
+                      onClick={() => onEditField('description')}
+                      className="p-1.5 text-gray-400 hover:text-gray-300 hover:bg-gray-500/20 rounded transition-colors self-start"
+                      title="Modifier la description"
+                    >
+                      <Pencil className="w-4 h-4" />
+                    </button>
+                  </div>
+                  
+                  {/* Objectifs */}
+                  <div className="flex flex-col sm:flex-row sm:items-start gap-1 sm:gap-2">
+                    <span className="text-green-400 font-semibold text-sm sm:text-base min-w-[100px] sm:min-w-[120px]">🎯 Objectif:</span>
+                    <span className="text-green-200 text-sm sm:text-base break-words flex-1">{todo.taskObjectives || <span className="text-gray-500 italic">Non renseigné</span>}</span>
+                    <button 
+                      type="button"
+                      onClick={() => onEditField('objectives')}
+                      className="p-1.5 text-green-400 hover:text-green-300 hover:bg-green-500/20 rounded transition-colors self-start"
+                      title="Modifier l'objectif"
+                    >
+                      <Pencil className="w-4 h-4" />
+                    </button>
+                  </div>
+                  
+                  {/* Contraintes */}
+                  <div className="flex flex-col sm:flex-row sm:items-start gap-1 sm:gap-2">
+                    <span className="text-orange-400 font-semibold text-sm sm:text-base min-w-[100px] sm:min-w-[120px]">⚠️ Contraintes:</span>
+                    <span className="text-orange-200 text-sm sm:text-base break-words flex-1">{todo.constraints || <span className="text-gray-500 italic">Non renseignées</span>}</span>
+                    <button 
+                      type="button"
+                      onClick={() => onEditField('constraints')}
+                      className="p-1.5 text-orange-400 hover:text-orange-300 hover:bg-orange-500/20 rounded transition-colors self-start"
+                      title="Modifier les contraintes"
+                    >
+                      <Pencil className="w-4 h-4" />
+                    </button>
+                  </div>
+                  
+                  {/* Solution proposée */}
+                  <div className="flex flex-col sm:flex-row sm:items-start gap-1 sm:gap-2">
+                    <span className="text-emerald-400 font-semibold text-sm sm:text-base min-w-[100px] sm:min-w-[120px]">💡 Solution:</span>
+                    <span className="text-emerald-200 text-sm sm:text-base break-words flex-1">{todo.solution || <span className="text-gray-500 italic">Non renseignée</span>}</span>
+                    <button 
+                      type="button"
+                      onClick={() => onEditField('solutionProposed')}
+                      className="p-1.5 text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/20 rounded transition-colors self-start"
+                      title="Modifier la solution"
+                    >
+                      <Pencil className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
                 
                 {/* Budget Section */}
                 <div className="p-3 md:p-4 bg-gradient-to-br from-green-500/10 to-green-600/5 rounded-lg border border-green-400/30 w-full overflow-hidden">
@@ -249,38 +314,7 @@ const TodoItemComponent = memo(function TodoItemComponent({
                   </div>
                 </div>
                 
-                {/* Task expenses list */}
-                {todoExpenses.length > 0 && (
-                  <div className="p-4 bg-[#0f1c2e]/50 rounded-lg border border-amber-400/20">
-                    <h4 className="text-base font-semibold text-amber-300 mb-3 flex items-center gap-2">
-                      <DollarSign className="w-5 h-5" />
-                      Dépenses de cette tâche ({todoExpenses.length})
-                    </h4>
-                    <div className="space-y-2 max-h-48 overflow-y-auto">
-                      {todoExpenses.map(expense => (
-                        <div key={expense.id} className="flex justify-between items-center text-sm py-2 border-b border-gray-700/50 gap-2">
-                          <div className="flex-1 min-w-0">
-                            <span className="text-gray-300 truncate block">{expense.description}</span>
-                            {expense.category && expense.category !== 'Autres' && (
-                              <span className="text-gray-500 text-xs">{expense.category}</span>
-                            )}
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <span className="text-amber-300 font-medium whitespace-nowrap">{expense.amount.toLocaleString()} FCFA</span>
-                            <button type="button" onClick={() => onEditExpense(expense)} className="p-1 text-blue-400 hover:text-blue-300 hover:bg-blue-500/20 rounded transition-colors">
-                              <Pencil className="w-4 h-4" />
-                            </button>
-                            <button type="button" onClick={() => onDeleteExpense(expense)} className="p-1 text-red-400 hover:text-red-300 hover:bg-red-500/20 rounded transition-colors">
-                              <Trash2 className="w-4 h-4" />
-                            </button>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-                
-                <CommentSection taskId={todo.taskId} />
+                <CommentSection taskId={todo.taskId} onCommentChange={onTaskUpdate} />
               </div>
             )}
           </div>
@@ -323,6 +357,9 @@ export function DailyTodoList({ tasks, projects, risks, onTaskUpdate }: DailyTod
     title: '', description: '', objectives: '', constraints: '', solutionProposed: '',
     projectId: '', status: 'À faire', priority: 'Moyenne', dueDate: '', startDate: '', assigneeName: '', budget: ''
   })
+  const [editTaskModal, setEditTaskModal] = useState<TodoItem | null>(null)
+  const [editTaskField, setEditTaskField] = useState<'title' | 'description' | 'objectives' | 'constraints' | 'solutionProposed'>('title')
+  const [editTaskValue, setEditTaskValue] = useState('')
 
   // Convert tasks to todo items - memoized
   const todos = useMemo(() => {
@@ -367,6 +404,7 @@ export function DailyTodoList({ tasks, projects, risks, onTaskUpdate }: DailyTod
         taskId: task.id,
         taskTitle: task.title,
         taskDescription: task.description,
+        taskObjectives: task.objectives,
         status: todoStatus,
         startDate: task.startedAt,
         deadline: task.dueDate,
@@ -633,6 +671,45 @@ export function DailyTodoList({ tasks, projects, risks, onTaskUpdate }: DailyTod
     } finally { setSaving(false) }
   }, [newTask, toast, handleTaskUpdate])
 
+  const handleEditTask = useCallback(async () => {
+    if (!editTaskModal) return
+    if (editTaskField === 'title' && !editTaskValue?.trim()) {
+      toast({ title: 'Veuillez entrer un titre', variant: 'destructive' })
+      return
+    }
+    setSaving(true)
+    try {
+      const updateData: Record<string, string | null> = {
+        id: editTaskModal.taskId,
+        [editTaskField]: editTaskValue.trim() || null
+      }
+      const res = await fetch('/api/tasks', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updateData)
+      })
+      const data = await res.json()
+      if (data.success) {
+        const fieldNames: Record<string, string> = { 
+          title: 'Tâche', 
+          description: 'Description', 
+          objectives: 'Objectif',
+          constraints: 'Contraintes',
+          solutionProposed: 'Solution'
+        }
+        toast({ title: `✅ ${fieldNames[editTaskField]} modifié(e) avec succès !` })
+        setEditTaskModal(null)
+        setEditTaskValue('')
+        handleTaskUpdate()
+      } else {
+        toast({ title: '❌ Erreur lors de la modification', description: data.error || 'Une erreur inconnue s\'est produite', variant: 'destructive' })
+      }
+    } catch (error) {
+      console.error('Erreur de connexion:', error)
+      toast({ title: '❌ Erreur de connexion', variant: 'destructive' })
+    } finally { setSaving(false) }
+  }, [editTaskModal, editTaskField, editTaskValue, toast, handleTaskUpdate])
+
   // Apply filters
   const applyFilters = useCallback((todoList: TodoItem[], sectionType?: string) => {
     let filtered = todoList
@@ -684,9 +761,22 @@ export function DailyTodoList({ tasks, projects, risks, onTaskUpdate }: DailyTod
         onDeleteExpense={handleDeleteExpense}
         onDeleteTask={() => setDeleteTaskModal(todo)}
         onSetBudget={() => { setBudgetModal(todo); setBudgetAmount(todo.budget ? todo.budget.toString() : '') }}
+        onEditField={(field) => {
+          setEditTaskModal(todo)
+          setEditTaskField(field)
+          const values = {
+            title: todo.taskTitle || '',
+            description: todo.taskDescription || '',
+            objectives: todo.taskObjectives || '',
+            constraints: todo.constraints || '',
+            solutionProposed: todo.solution || ''
+          }
+          setEditTaskValue(values[field])
+        }}
+        onTaskUpdate={handleTaskUpdate}
       />
     )
-  }, [expandedTodo, updatingTaskId, projectExpenses, handleDeleteExpense])
+  }, [expandedTodo, updatingTaskId, projectExpenses, handleDeleteExpense, handleTaskUpdate])
 
   // Render section
   const renderSection = useCallback((title: string, icon: React.ReactNode, items: TodoItem[], titleColor: string, sectionType?: string, isCompleted: boolean = false) => {
@@ -824,7 +914,7 @@ export function DailyTodoList({ tasks, projects, risks, onTaskUpdate }: DailyTod
               <p className="text-gray-300 text-sm">Tâche: <span className="text-white font-medium">{reprogramDialog.todo.taskTitle}</span></p>
               <div>
                 <label className="text-sm text-gray-400 block mb-1">Nouvelle date limite *</label>
-                <Input type="date" value={reprogramDialog.newDate} onChange={(e) => setReprogramDialog(prev => ({ ...prev, newDate: e.target.value }))} className="bg-[#0f1c2e] border-blue-400/30 text-white" />
+                <Input type="date" value={reprogramDialog.newDate} onChange={(e) => setReprogramDialog(prev => ({ ...prev, newDate: e.target.value }))} className="bg-[#0f1c2e] border-blue-400/30 text-white [&::-webkit-calendar-picker-indicator]:brightness-0 [&::-webkit-calendar-picker-indicator]:invert" />
               </div>
               <div>
                 <label className="text-sm text-gray-400 block mb-1">Nouveau statut</label>
@@ -936,19 +1026,40 @@ export function DailyTodoList({ tasks, projects, risks, onTaskUpdate }: DailyTod
 
       {/* Create Task Modal */}
       <Dialog open={createTaskModal} onOpenChange={setCreateTaskModal}>
-        <DialogContent className="bg-gradient-to-br from-[#1e3a5f] to-[#0f1c2e] border-green-400/30 text-white max-w-2xl">
+        <DialogContent className="bg-gradient-to-br from-[#1e3a5f] to-[#0f1c2e] border-green-400/30 text-white max-w-3xl max-h-[90vh] overflow-y-auto">
           <DialogHeader><DialogTitle className="flex items-center gap-2 text-green-300"><Plus className="w-5 h-5" />Créer une nouvelle tâche</DialogTitle></DialogHeader>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 py-4">
-            <div className="md:col-span-2">
-              <label className="text-sm text-gray-400 block mb-1">Titre *</label>
-              <Input value={newTask.title} onChange={(e) => setNewTask(prev => ({ ...prev, title: e.target.value }))} placeholder="Titre de la tâche" className="bg-[#0f1c2e] border-blue-400/30 text-white" />
+            {/* Section Tâche */}
+            <div className="md:col-span-2 border-b border-blue-400/20 pb-2 mb-2">
+              <h3 className="text-amber-400 font-semibold text-lg">📝 Tâche</h3>
             </div>
             <div className="md:col-span-2">
-              <label className="text-sm text-gray-400 block mb-1">Description</label>
-              <Input value={newTask.description} onChange={(e) => setNewTask(prev => ({ ...prev, description: e.target.value }))} placeholder="Description de la tâche" className="bg-[#0f1c2e] border-blue-400/30 text-white" />
+              <label className="text-sm text-gray-400 block mb-1">Titre de la tâche *</label>
+              <Input value={newTask.title} onChange={(e) => setNewTask(prev => ({ ...prev, title: e.target.value }))} placeholder="Ex: Développer la page de connexion" className="bg-[#0f1c2e] border-blue-400/30 text-white" />
+            </div>
+            <div className="md:col-span-2">
+              <label className="text-sm text-gray-400 block mb-1">Description de la tâche</label>
+              <textarea value={newTask.description} onChange={(e) => setNewTask(prev => ({ ...prev, description: e.target.value }))} placeholder="Décrivez la tâche en détail..." className="w-full bg-[#0f1c2e] border border-blue-400/30 rounded-md px-3 py-2 text-white min-h-[80px]" />
+            </div>
+            <div className="md:col-span-2">
+              <label className="text-sm text-gray-400 block mb-1">Objectifs de la tâche</label>
+              <textarea value={newTask.objectives} onChange={(e) => setNewTask(prev => ({ ...prev, objectives: e.target.value }))} placeholder="Quels sont les objectifs de cette tâche ?" className="w-full bg-[#0f1c2e] border border-blue-400/30 rounded-md px-3 py-2 text-white min-h-[60px]" />
+            </div>
+            <div className="md:col-span-2">
+              <label className="text-sm text-orange-400 block mb-1">⚠️ Contraintes</label>
+              <textarea value={newTask.constraints} onChange={(e) => setNewTask(prev => ({ ...prev, constraints: e.target.value }))} placeholder="Ex: Délai serré, ressources limitées, dépendances techniques..." className="w-full bg-[#0f1c2e] border border-orange-400/30 rounded-md px-3 py-2 text-white min-h-[60px]" />
+            </div>
+            <div className="md:col-span-2">
+              <label className="text-sm text-green-400 block mb-1">💡 Solution proposée</label>
+              <textarea value={newTask.solutionProposed} onChange={(e) => setNewTask(prev => ({ ...prev, solutionProposed: e.target.value }))} placeholder="Ex: Utiliser une approche agile, assigner plus de ressources..." className="w-full bg-[#0f1c2e] border border-green-400/30 rounded-md px-3 py-2 text-white min-h-[60px]" />
+            </div>
+            
+            {/* Section Projet */}
+            <div className="md:col-span-2 border-b border-blue-400/20 pb-2 mb-2 mt-4">
+              <h3 className="text-blue-400 font-semibold text-lg">📁 Projet</h3>
             </div>
             <div>
-              <label className="text-sm text-gray-400 block mb-1">Projet *</label>
+              <label className="text-sm text-gray-400 block mb-1">Projet associé *</label>
               <select value={newTask.projectId} onChange={(e) => setNewTask(prev => ({ ...prev, projectId: e.target.value }))} className="w-full bg-[#0f1c2e] border border-blue-400/30 rounded-md px-3 py-2 text-white">
                 <option value="">Sélectionner un projet</option>
                 {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
@@ -965,11 +1076,11 @@ export function DailyTodoList({ tasks, projects, risks, onTaskUpdate }: DailyTod
             </div>
             <div>
               <label className="text-sm text-gray-400 block mb-1">Date de début</label>
-              <Input type="date" value={newTask.startDate} onChange={(e) => setNewTask(prev => ({ ...prev, startDate: e.target.value }))} className="bg-[#0f1c2e] border-blue-400/30 text-white" />
+              <Input type="date" value={newTask.startDate} onChange={(e) => setNewTask(prev => ({ ...prev, startDate: e.target.value }))} className="bg-[#0f1c2e] border-blue-400/30 text-white [&::-webkit-calendar-picker-indicator]:brightness-0 [&::-webkit-calendar-picker-indicator]:invert" />
             </div>
             <div>
               <label className="text-sm text-gray-400 block mb-1">Date limite</label>
-              <Input type="date" value={newTask.dueDate} onChange={(e) => setNewTask(prev => ({ ...prev, dueDate: e.target.value }))} className="bg-[#0f1c2e] border-blue-400/30 text-white" />
+              <Input type="date" value={newTask.dueDate} onChange={(e) => setNewTask(prev => ({ ...prev, dueDate: e.target.value }))} className="bg-[#0f1c2e] border-blue-400/30 text-white [&::-webkit-calendar-picker-indicator]:brightness-0 [&::-webkit-calendar-picker-indicator]:invert" />
             </div>
             <div>
               <label className="text-sm text-gray-400 block mb-1">Responsable</label>
@@ -980,7 +1091,7 @@ export function DailyTodoList({ tasks, projects, risks, onTaskUpdate }: DailyTod
               <Input type="number" value={newTask.budget} onChange={(e) => setNewTask(prev => ({ ...prev, budget: e.target.value }))} placeholder="Ex: 500000" className="bg-[#0f1c2e] border-blue-400/30 text-white" />
             </div>
           </div>
-          <DialogFooter>
+          <DialogFooter className="flex gap-2">
             <Button type="button" onClick={handleCreateTask} disabled={saving} className="bg-green-500 hover:bg-green-600 text-black font-semibold">
               {saving ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}Créer la tâche
             </Button>
@@ -1005,6 +1116,75 @@ export function DailyTodoList({ tasks, projects, risks, onTaskUpdate }: DailyTod
             <Button type="button" onClick={handleDeleteTask} disabled={!!updatingTaskId} className="bg-red-500 hover:bg-red-600 text-white font-semibold">
               {updatingTaskId ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}Supprimer définitivement
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Task Field Modal */}
+      <Dialog open={!!editTaskModal} onOpenChange={(open) => { if (!open) { setEditTaskModal(null); setEditTaskValue('') }}}>
+        <DialogContent className="bg-gradient-to-br from-[#1e3a5f] to-[#0f1c2e] border-amber-400/30 text-white max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-amber-300">
+              <Pencil className="w-5 h-5" />
+              {editTaskField === 'title' && 'Modifier la tâche'}
+              {editTaskField === 'description' && 'Modifier la description'}
+              {editTaskField === 'objectives' && 'Modifier l\'objectif'}
+              {editTaskField === 'constraints' && 'Modifier les contraintes'}
+              {editTaskField === 'solutionProposed' && 'Modifier la solution'}
+            </DialogTitle>
+          </DialogHeader>
+          {editTaskModal && (
+            <div className="space-y-4 py-4">
+              <div>
+                <label className="text-sm text-gray-400 block mb-2">
+                  {editTaskField === 'title' && '📝 Titre de la tâche'}
+                  {editTaskField === 'description' && '📄 Description de la tâche'}
+                  {editTaskField === 'objectives' && '🎯 Objectifs de la tâche'}
+                  {editTaskField === 'constraints' && '⚠️ Contraintes'}
+                  {editTaskField === 'solutionProposed' && '💡 Solution proposée'}
+                </label>
+                {editTaskField === 'title' ? (
+                  <Input 
+                    value={editTaskValue} 
+                    onChange={(e) => setEditTaskValue(e.target.value)} 
+                    placeholder="Ex: Développer la page de connexion" 
+                    className="bg-[#0f1c2e] border-amber-400/30 text-white" 
+                    autoFocus
+                  />
+                ) : (
+                  <textarea 
+                    value={editTaskValue} 
+                    onChange={(e) => setEditTaskValue(e.target.value)} 
+                    placeholder={
+                      editTaskField === 'description' ? "Décrivez la tâche en détail..." : 
+                      editTaskField === 'objectives' ? "Quels sont les objectifs de cette tâche ?" :
+                      editTaskField === 'constraints' ? "Ex: Délai serré, ressources limitées..." :
+                      "Ex: Utiliser une approche agile, assigner plus de ressources..."
+                    }
+                    className={`w-full bg-[#0f1c2e] border rounded-md px-3 py-2 text-white min-h-[120px] ${
+                      editTaskField === 'description' ? 'border-blue-400/30' : 
+                      editTaskField === 'objectives' ? 'border-green-400/30' :
+                      editTaskField === 'constraints' ? 'border-orange-400/30' :
+                      'border-emerald-400/30'
+                    }`}
+                    autoFocus
+                  />
+                )}
+              </div>
+              {/* Info */}
+              <div className="bg-blue-500/10 rounded-lg p-3 border border-blue-400/20">
+                <p className="text-sm text-gray-400">
+                  📁 <span className="text-blue-300">Projet:</span> {editTaskModal.projectName}
+                </p>
+              </div>
+            </div>
+          )}
+          <DialogFooter className="flex gap-2">
+            <Button type="button" onClick={handleEditTask} disabled={saving} className="bg-amber-500 hover:bg-amber-600 text-black font-semibold">
+              {saving ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+              Enregistrer
+            </Button>
+            <Button type="button" variant="outline" onClick={() => { setEditTaskModal(null); setEditTaskValue('') }} className="border-blue-400/30 text-blue-200 hover:bg-blue-500/20">Annuler</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

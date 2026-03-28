@@ -100,74 +100,89 @@ function saveState(state: Partial<AppState>) {
   }, 500)
 }
 
-// Charger l'état initial UNE SEULE FOIS
-const initialState = typeof window !== 'undefined' ? loadStoredState() : null
+// Charger l'état initial UNE SEULE FOIS au niveau du module
+let initialState: Partial<AppState> | null = null
+let initialLoadDone = false
 
-export const useAppStore = create<AppState>()((set) => ({
-  // Authentication - restaurer depuis localStorage si disponible
-  user: initialState?.user || null,
-  isAuthenticated: initialState?.isAuthenticated || false,
-  setUser: (user) => {
-    const newState = { user, isAuthenticated: !!user }
-    set(newState)
-    saveState(newState)
-  },
-  logout: () => {
-    const newState = { user: null, isAuthenticated: false, currentPage: 'dashboard' as PageType, viewingUserId: null }
-    set(newState)
-    saveState(newState)
-  },
-  
-  // Navigation
-  currentPage: initialState?.currentPage || 'dashboard',
-  setCurrentPage: (page) => {
-    const newState = { currentPage: page, selectedProjectId: null }
-    set(newState)
-    saveState(newState)
-  },
-  
-  // Dashboard tabs
-  dashboardTab: initialState?.dashboardTab || 'overview',
-  setDashboardTab: (tab) => {
-    set({ dashboardTab: tab })
-    saveState({ dashboardTab: tab })
-  },
-  
-  // Projects
-  selectedFolderId: initialState?.selectedFolderId || null,
-  setSelectedFolderId: (folderId) => {
-    const newState = { selectedFolderId: folderId, selectedProjectId: null }
-    set(newState)
-    saveState(newState)
-  },
-  
-  selectedProjectId: initialState?.selectedProjectId || null,
-  setSelectedProjectId: (projectId) => {
-    set({ selectedProjectId: projectId })
-    saveState({ selectedProjectId: projectId })
-  },
-  
-  // UI State
-  sidebarOpen: initialState?.sidebarOpen ?? true,
-  setSidebarOpen: (open) => {
-    set({ sidebarOpen: open })
-    saveState({ sidebarOpen: open })
-  },
-  
-  // User preferences
-  theme: initialState?.theme || 'dark',
-  setTheme: (theme) => {
-    set({ theme })
-    saveState({ theme })
-  },
+function getInitialState() {
+  if (!initialLoadDone && typeof window !== 'undefined') {
+    initialState = loadStoredState()
+    initialLoadDone = true
+  }
+  return initialState
+}
 
-  // Viewing another user's profile
-  viewingUserId: initialState?.viewingUserId || null,
-  setViewingUserId: (userId) => {
-    set({ viewingUserId: userId })
-    saveState({ viewingUserId: userId })
-  },
-}))
+export const useAppStore = create<AppState>()((set) => {
+  const state = getInitialState()
+  return {
+    // Authentication - restaurer depuis localStorage si disponible
+    user: state?.user || null,
+    isAuthenticated: state?.isAuthenticated || false,
+    setUser: (user) => {
+      const newState = { user, isAuthenticated: !!user }
+      set(newState)
+      saveState(newState)
+    },
+    logout: () => {
+      const newState = { user: null, isAuthenticated: false, currentPage: 'dashboard' as PageType, viewingUserId: null }
+      set(newState)
+      saveState(newState)
+    },
+    
+    // Navigation
+    currentPage: state?.currentPage || 'dashboard',
+    setCurrentPage: (page) => {
+      const newState = { currentPage: page, selectedProjectId: null }
+      set(newState)
+      saveState(newState)
+    },
+    
+    // Dashboard tabs
+    dashboardTab: state?.dashboardTab || 'overview',
+    setDashboardTab: (tab) => {
+      set({ dashboardTab: tab })
+      saveState({ dashboardTab: tab })
+    },
+    
+    // Projects
+    selectedFolderId: state?.selectedFolderId || null,
+    setSelectedFolderId: (folderId) => {
+      const newState = { selectedFolderId: folderId, selectedProjectId: null }
+      set(newState)
+      saveState(newState)
+    },
+    
+    selectedProjectId: state?.selectedProjectId || null,
+    setSelectedProjectId: (projectId) => {
+      set({ selectedProjectId: projectId })
+      saveState({ selectedProjectId: projectId })
+    },
+    
+    // UI State
+    sidebarOpen: state?.sidebarOpen ?? true,
+    setSidebarOpen: (open) => {
+      set({ sidebarOpen: open })
+      saveState({ sidebarOpen: open })
+    },
+    
+    // User preferences
+    theme: state?.theme || 'dark',
+    setTheme: (theme) => {
+      set({ theme })
+      saveState({ theme })
+    },
 
-// Hook simplifié - toujours true côté client
-export const useHydration = () => typeof window !== 'undefined'
+    // Viewing another user's profile
+    viewingUserId: state?.viewingUserId || null,
+    setViewingUserId: (userId) => {
+      set({ viewingUserId: userId })
+      saveState({ viewingUserId: userId })
+    },
+  }
+})
+
+// Hook simple - on est toujours hydraté côté client
+// L'état initial est chargé synchronément depuis localStorage
+export function useHydration() {
+  return typeof window !== 'undefined'
+}
