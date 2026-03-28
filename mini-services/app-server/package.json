@@ -1,0 +1,7 @@
+{
+  "name": "ngp-app-server",
+  "version": "1.0.0",
+  "scripts": {
+    "dev": "cd /home/z/my-project && exec bun run dev"
+  }
+}
